@@ -1,7 +1,7 @@
 package mqtt
 
 import (
-	"bambulabs-api/types"
+	"bambulabs_api/types"
 	"crypto/tls"
 	"encoding/json"
 	"errors"

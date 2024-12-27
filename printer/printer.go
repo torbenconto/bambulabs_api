@@ -1,10 +1,10 @@
 package printer
 
 import (
-	"bambulabs-api/mqtt"
-	"bambulabs-api/state"
-	"bambulabs-api/types"
-	"bambulabs-api/util"
+	"bambulabs_api/mqtt"
+	"bambulabs_api/state"
+	"bambulabs_api/types"
+	"bambulabs_api/util"
 	"fmt"
 	"net"
 	"strconv"
