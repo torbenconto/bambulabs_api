@@ -1,16 +1,23 @@
 package mqtt
 
 import (
+	"bambulabs-api/types"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
-	paho "github.com/eclipse/paho.mqtt.golang"
 	"log"
 	"net"
+	"reflect"
 	"strconv"
 	"sync"
 	"time"
+)
+
+// https://github.com/Doridian/OpenBambuAPI/blob/main/mqtt.md
+
+import (
+	paho "github.com/eclipse/paho.mqtt.golang"
 )
 
 const (
@@ -34,7 +41,7 @@ type Client struct {
 	client paho.Client
 
 	mutex      sync.Mutex
-	data       map[string]interface{}
+	data       types.Data
 	lastUpdate time.Time
 }
 
@@ -52,7 +59,7 @@ func NewClient(config *ClientConfig) *Client {
 
 	c := &Client{
 		config:     config,
-		data:       make(map[string]interface{}),
+		data:       types.Data{},
 		lastUpdate: time.Now(),
 	}
 
@@ -74,17 +81,15 @@ func NewClient(config *ClientConfig) *Client {
 		defer c.mutex.Unlock()
 
 		payload := msg.Payload()
-		var received map[string]interface{}
+		var received types.Data
 
 		if err := json.Unmarshal(payload, &received); err != nil {
 			log.Printf("Error unmarshaling message: %v", err)
 			return
 		}
 
-		if _, ok := received["print"]; ok {
-			for key, value := range received["print"].(map[string]interface{}) {
-				c.data[key] = value
-			}
+		if _, ok := reflect.TypeOf(received).FieldByName("Print"); ok {
+			c.data = received
 			log.Printf("Updated data: %v", c.data)
 		}
 	})
@@ -122,25 +127,26 @@ func (c *Client) Publish(payload string) error {
 	return nil
 }
 
-func (c *Client) update(data map[string]interface{}) error {
+func (c *Client) update() error {
 	if !(time.Since(c.lastUpdate) > c.config.Timeout) {
 		return errors.New("timeout")
 	}
 
 	c.lastUpdate = time.Now()
 	// Return of this message is caught by the onmessage handler which update c.data
-	return c.Publish(PushAll)
+	return c.Publish(Command{
+		Type:    Pushing,
+		Command: "push_all",
+	}.JSON())
 }
 
-func (c *Client) Data() map[string]interface{} {
+func (c *Client) Data() types.Data {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	// Maybe a better way to return not a direct ref? Benchmarked at ~10-12µs for 100 items so shouldn't be a huge problem but looks pretty ugly.
-	// Reason for returning immutable is to allow the Printer struct to handle all the helper functions like LightOn so this struct doesn't get crowded whilst making sure that it's readonly
-	copied := make(map[string]interface{}, len(c.data))
-	for key, value := range c.data {
-		copied[key] = value
+	if err := c.update(); err != nil {
+		return c.data
 	}
-	return copied
+
+	return c.data
 }

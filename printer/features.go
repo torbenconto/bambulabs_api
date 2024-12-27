@@ -38,3 +38,12 @@ func (n Nozzle) String() string {
 		return "Unknown"
 	}
 }
+
+type Speed int
+
+const (
+	Silent Speed = iota + 1
+	Standard
+	Sport
+	Ludicrous
+)

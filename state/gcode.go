@@ -1,15 +1,15 @@
-package gcode_state
+package state
 
-type GcodeState int
+type GcodeState string
 
 const (
-	IDLE GcodeState = iota
-	PREPARE
-	RUNNING
-	PAUSE
-	FINISH
-	FAILED
-	UNKNOWN = -1
+	IDLE    GcodeState = "IDLE"
+	PREPARE GcodeState = "PREPARE"
+	RUNNING GcodeState = "RUNNING"
+	PAUSE   GcodeState = "PAUSE"
+	FINISH  GcodeState = "FINISH"
+	FAILED  GcodeState = "FAILED"
+	UNKNOWN GcodeState = "UNKNOWN"
 )
 
 // String returns a human-readable description of the G-code state.
@@ -35,7 +35,7 @@ func (gs GcodeState) String() string {
 }
 
 // GetGcodeState returns the description based on the provided state value.
-func GetGcodeState(value int) GcodeState {
+func GetGcodeState(value string) GcodeState {
 	switch GcodeState(value) {
 	case IDLE, PREPARE, RUNNING, PAUSE, FINISH, FAILED, UNKNOWN:
 		return GcodeState(value)
