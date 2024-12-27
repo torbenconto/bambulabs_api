@@ -18,3 +18,8 @@ const (
 const (
 	PushAll = `"{pushing": {"command": "push_all"}}`
 )
+
+const (
+	GcodeTemplate       = `{"print": {"command": "gcode_line", "param": "%s"}}`
+	CalibrationTemplate = `{"print": {"command": "calibration", "option": "%d"}}`
+)
