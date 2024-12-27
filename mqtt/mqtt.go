@@ -6,8 +6,8 @@ import (
 	"fmt"
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"log"
+	"net"
 	"strconv"
-	"time"
 )
 
 const (
@@ -16,23 +16,23 @@ const (
 )
 
 type ClientConfig struct {
-	Host       string
+	Host       net.IP
 	Port       int
 	Serial     string
-	AccessCode string
 	Username   string
-	Timeout    time.Duration
+	AccessCode string
+	//Timeout    time.Duration
 }
 
 type Client struct {
-	config ClientConfig
+	config *ClientConfig
 	client paho.Client
 }
 
-func NewClient(config ClientConfig) *Client {
+func NewClient(config *ClientConfig) *Client {
 	options := paho.NewClientOptions()
 	// Maybe tls:// or tcp://
-	options.AddBroker("tls://" + config.Host + ":" + strconv.Itoa(config.Port))
+	options.AddBroker("tls://" + config.Host.String() + ":" + strconv.Itoa(config.Port))
 	options.SetClientID(Clientid)
 	options.SetUsername(config.Username)
 	options.SetPassword(config.AccessCode)
@@ -75,7 +75,7 @@ func (c *Client) Disconnect() {
 	log.Println("MQTT client disconnected")
 }
 
-func (c *Client) Publish(payload map[string]interface{}) error {
+func (c *Client) Publish(payload string) error {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return err
