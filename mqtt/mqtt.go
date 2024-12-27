@@ -2,6 +2,7 @@ package mqtt
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"log"
@@ -11,6 +12,7 @@ import (
 
 const (
 	Clientid = "golang-bambulabs-api"
+	Topic    = "/device/%s/report"
 )
 
 type ClientConfig struct {
@@ -40,7 +42,7 @@ func NewClient(config ClientConfig) *Client {
 	options.SetAutoReconnect(true)
 
 	options.SetOnConnectHandler(func(client paho.Client) {
-		topic := fmt.Sprintf("/device/%s/report", config.Serial)
+		topic := fmt.Sprintf(Topic, config.Serial)
 		if token := client.Subscribe(topic, 0, nil); token.Wait() && token.Error() != nil {
 			log.Printf("Error subscribing to topic %s: %s", topic, token.Error())
 		} else {
@@ -57,12 +59,12 @@ func NewClient(config ClientConfig) *Client {
 	}
 }
 
-func (c *Client) Connect() error {
+func (c *Client) Connect() {
 	if token := c.client.Connect(); token.Wait() && token.Error() != nil {
-		return token.Error()
+		log.Fatalf("Error connecting to mqtt broker %s: %s", c.config.Host, token.Error())
 	}
 
-	return nil
+	log.Printf("Connected to mqtt broker %s", c.config.Host)
 }
 
 func (c *Client) Disconnect() {
@@ -71,3 +73,32 @@ func (c *Client) Disconnect() {
 
 	log.Println("MQTT client disconnected")
 }
+
+func (c *Client) Publish(payload map[string]interface{}) bool {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("Error marshalling payload: %s", err)
+		return false
+	}
+
+	token := c.client.Publish(Topic, 0, false, data)
+	if token.Wait() && token.Error() != nil {
+		log.Printf("Error publishing to mqtt broker %s: %s", c.config.Host, token.Error())
+		return false
+	}
+
+	return true
+}
+
+// Command format
+
+// System commands
+/*
+	system: {
+		I will make a type for this where you pass in Light.On into a function on the printer class
+		"led_mode": "on" || "off"
+
+	}
+*/
+
+// Print commands
