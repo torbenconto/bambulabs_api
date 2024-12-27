@@ -88,16 +88,3 @@ func (c *Client) Publish(payload map[string]interface{}) error {
 
 	return nil
 }
-
-// Command format
-
-// System commands
-/*
-	system: {
-		I will make a type for this where you pass in Light.On into a function on the printer class
-		"led_mode": "on" || "off"
-
-	}
-*/
-
-// Print commands
