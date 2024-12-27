@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/secsy/goftp"
+	"net"
 )
 
 type ClientConfig struct {
-	Host       string
+	Host       net.IP
 	Port       int
 	Username   string
 	AccessCode string
@@ -35,7 +36,7 @@ func (c *Client) Connect() error {
 		ConnectionsPerHost: 1,
 	}
 
-	address := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
+	address := fmt.Sprintf("%s:%d", c.config.Host.String(), c.config.Port)
 	conn, err := goftp.DialConfig(config, address)
 	if err != nil {
 		return err
@@ -47,7 +48,10 @@ func (c *Client) Connect() error {
 
 func (c *Client) Disconnect() error {
 	if c.conn != nil {
-		c.conn.Close()
+		err := c.conn.Close()
+		if err != nil {
+			return err
+		}
 		c.conn = nil
 	}
 	return nil

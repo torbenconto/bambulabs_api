@@ -1,6 +1,7 @@
 package printer
 
 import (
+	"bambulabs_api/ftp"
 	"bambulabs_api/mqtt"
 	"bambulabs_api/state"
 	"bambulabs_api/types"
@@ -17,6 +18,7 @@ type Printer struct {
 	serial     string
 
 	MQTTClient *mqtt.Client
+	FTPClient  *ftp.Client
 }
 
 func NewPrinter(ipAddr net.IP, accessCode, serial string) *Printer {
@@ -32,17 +34,34 @@ func NewPrinter(ipAddr net.IP, accessCode, serial string) *Printer {
 			Username:   "bblp",
 			AccessCode: accessCode,
 
-			Timeout: 250 * time.Millisecond,
+			Timeout: 5 * time.Second,
+		}),
+		FTPClient: ftp.NewClient(&ftp.ClientConfig{
+			Host:       ipAddr,
+			Port:       990,
+			Username:   "bblp",
+			AccessCode: accessCode,
 		}),
 	}
 }
 
 func (p *Printer) Connect() error {
-	return p.MQTTClient.Connect()
+	err := p.MQTTClient.Connect()
+	if err != nil {
+		return err
+	}
+
+	err = p.FTPClient.Connect()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (p *Printer) Disconnect() {
+func (p *Printer) Disconnect() error {
 	p.MQTTClient.Disconnect()
+	return p.FTPClient.Disconnect()
 }
 
 // Data returns the current state of the printer as a Data struct
