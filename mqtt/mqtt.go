@@ -41,6 +41,7 @@ func NewClient(config ClientConfig) *Client {
 	})
 	options.SetAutoReconnect(true)
 
+	// TODO: needs improvement
 	options.SetOnConnectHandler(func(client paho.Client) {
 		topic := fmt.Sprintf(Topic, config.Serial)
 		if token := client.Subscribe(topic, 0, nil); token.Wait() && token.Error() != nil {
@@ -59,12 +60,12 @@ func NewClient(config ClientConfig) *Client {
 	}
 }
 
-func (c *Client) Connect() {
+func (c *Client) Connect() error {
 	if token := c.client.Connect(); token.Wait() && token.Error() != nil {
-		log.Fatalf("Error connecting to mqtt broker %s: %s", c.config.Host, token.Error())
+		return token.Error()
 	}
 
-	log.Printf("Connected to mqtt broker %s", c.config.Host)
+	return nil
 }
 
 func (c *Client) Disconnect() {
@@ -74,20 +75,18 @@ func (c *Client) Disconnect() {
 	log.Println("MQTT client disconnected")
 }
 
-func (c *Client) Publish(payload map[string]interface{}) bool {
+func (c *Client) Publish(payload map[string]interface{}) error {
 	data, err := json.Marshal(payload)
 	if err != nil {
-		log.Printf("Error marshalling payload: %s", err)
-		return false
+		return err
 	}
 
 	token := c.client.Publish(Topic, 0, false, data)
 	if token.Wait() && token.Error() != nil {
-		log.Printf("Error publishing to mqtt broker %s: %s", c.config.Host, token.Error())
-		return false
+		return token.Error()
 	}
 
-	return true
+	return nil
 }
 
 // Command format
