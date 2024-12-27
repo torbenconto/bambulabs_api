@@ -1,4 +1,4 @@
-module bambulabs-api
+module bambulabs_api
 
 go 1.23
 
