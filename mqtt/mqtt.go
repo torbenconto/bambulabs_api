@@ -49,7 +49,7 @@ type Client struct {
 func NewClient(config *ClientConfig) *Client {
 	options := paho.NewClientOptions()
 	// Maybe tls:// or tcp://
-	options.AddBroker("mqtts://" + config.Host.String() + ":" + strconv.Itoa(config.Port))
+	options.AddBroker("mqtt://" + config.Host.String() + ":" + strconv.Itoa(config.Port))
 	options.SetClientID(Clientid)
 	options.SetUsername(config.Username)
 	options.SetPassword(config.AccessCode)
