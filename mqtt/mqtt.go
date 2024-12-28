@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gith
+	"github.com/torbenconto/bambulabs_api/types"
 	"log"
 	"net"
 	"reflect"
