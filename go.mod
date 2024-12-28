@@ -1,4 +1,4 @@
-module bambulabs_api
+module github.com/torbenconto/bambulabs_api
 
 go 1.23
 
