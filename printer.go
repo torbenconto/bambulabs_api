@@ -2,14 +2,15 @@ package bambulabs_api
 
 import (
 	"fmt"
+	"net"
+	"strconv"
+	"time"
+
 	"github.com/torbenconto/bambulabs_api/ftp"
 	"github.com/torbenconto/bambulabs_api/mqtt"
 	"github.com/torbenconto/bambulabs_api/state"
 	"github.com/torbenconto/bambulabs_api/types"
 	"github.com/torbenconto/bambulabs_api/util"
-	"net"
-	"strconv"
-	"time"
 )
 
 type Printer struct {
@@ -48,12 +49,12 @@ func NewPrinter(ipAddr net.IP, accessCode, serial string) *Printer {
 func (p *Printer) Connect() error {
 	err := p.MQTTClient.Connect()
 	if err != nil {
-		return err
+		return fmt.Errorf("MQTTClient.Connect() error %w", err)
 	}
 
 	err = p.FTPClient.Connect()
 	if err != nil {
-		return err
+		return fmt.Errorf("FTPClient.Connect() error %w", err)
 	}
 
 	return nil
