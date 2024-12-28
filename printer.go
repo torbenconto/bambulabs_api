@@ -1,12 +1,12 @@
 package bambulabs_api
 
 import (
-	"bambulabs_api/ftp"
-	"bambulabs_api/mqtt"
-	"bambulabs_api/state"
-	"bambulabs_api/types"
-	"bambulabs_api/util"
 	"fmt"
+	"github.com/torbenconto/bambulabs_api/ftp"
+	"github.com/torbenconto/bambulabs_api/mqtt"
+	"github.com/torbenconto/bambulabs_api/state"
+	"github.com/torbenconto/bambulabs_api/types"
+	"github.com/torbenconto/bambulabs_api/util"
 	"net"
 	"strconv"
 	"time"
