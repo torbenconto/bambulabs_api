@@ -44,11 +44,11 @@ import (
 
 func main() {
 	// Printer local IP 
-	printerIp = net.IPv4(192, 168, 1, 200)
+	printerIp := net.IPv4(192, 168, 1, 200)
 	// Printer serial number
-	printerSerialNumber = "AC1029391BH109"
+	printerSerialNumber := "AC1029391BH109"
 	// Printer access code
-	printerAccessCode = "00293KD0"
+	printerAccessCode := "00293KD0"
 
 	// Create printer object
 	printer := bambulabs_api.NewPrinter(printerIp, printerSerialNumber, printerAccessCode)
