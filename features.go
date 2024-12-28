@@ -1,4 +1,4 @@
-package printer
+package bambulabs_api
 
 type Fan int
 
