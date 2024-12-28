@@ -1,6 +1,6 @@
 module github.com/torbenconto/bambulabs_api
 
-go 1.23
+go 1.23.4
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.5.0
