@@ -21,8 +21,9 @@ import (
 )
 
 const (
-	Clientid = "golang-bambulabs-api"
-	Topic    = "/device/%s/report"
+	Clientid     = "golang-bambulabs-api"
+	Topic        = "/device/%s/report"
+	CommandTopic = "/device/%s/request"
 )
 
 type ClientConfig struct {
@@ -119,7 +120,7 @@ func (c *Client) Publish(payload string) error {
 		return err
 	}
 
-	token := c.client.Publish(Topic, 0, false, data)
+	token := c.client.Publish(CommandTopic, 0, false, data)
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
