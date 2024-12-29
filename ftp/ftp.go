@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/secsy/goftp"
 	"net"
+	"os"
 )
 
 type ClientConfig struct {
@@ -73,6 +74,14 @@ func (c *Client) RetrieveFile(path string) (bytes.Buffer, error) {
 	var data bytes.Buffer
 	err := c.conn.Retrieve(path, &data)
 	return data, err
+}
+
+func (c *Client) ListFiles(path string) ([]os.FileInfo, error) {
+	if c.conn == nil {
+		return []os.FileInfo{}, fmt.Errorf("not connected")
+	}
+
+	return c.conn.ReadDir(path)
 }
 
 func (c *Client) DeleteFile(path string) error {
