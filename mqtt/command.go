@@ -17,11 +17,11 @@ type Command struct {
 }
 
 func (c Command) JSON() string {
+	format := `{"%s": {"command": "%s", "param": "%s"}}`
 	if c.Command == "calibration" {
-		return fmt.Sprintf(`{"%s": {"command": "%s", "option": "%s"}}`, c.Type, c.Command, c.Param)
+		format = `{"%s": {"command": "%s", "option": "%s"}}`
+	} else if c.Type == System {
+		format = `{"%s": {"%s": "%s"}}`
 	}
-	if c.Type == System {
-		return fmt.Sprintf(`{"%s": {"%s": "%s"}}`, c.Type, c.Command, c.Param)
-	}
-	return fmt.Sprintf(`{"%s": {"command": "%s", "param": "%s"}}`, c.Type, c.Command, c.Param)
+	return fmt.Sprintf(format, c.Type, c.Command, c.Param)
 }
