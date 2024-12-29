@@ -24,7 +24,7 @@ Finding the serial number is a little more complex and thus a few methods to do 
 
 Once you have these parameters, you can create a printer object through 
 ```go
-printer := bambulabs_api.NewPrinter(IP, SERIAL_NUMBER, ACCESS_CODE)
+printer := bambulabs_api.NewPrinter(IP, ACCESS_CODE, SERIAL_NUMBER)
 ```
 and connect to it via
 ```
