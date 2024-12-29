@@ -51,7 +51,7 @@ func main() {
 	printerAccessCode := "00293KD0"
 
 	// Create printer object
-	printer := bambulabs_api.NewPrinter(printerIp, printerSerialNumber, printerAccessCode)
+	printer := bambulabs_api.NewPrinter(printerIp, printerAccessCode, printerSerialNumber)
 
 	// Connect to printer via MQTT
 	err := printer.Connect()
