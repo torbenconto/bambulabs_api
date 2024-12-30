@@ -39,6 +39,7 @@ package main
 import (
 	"fmt"
 	"github.com/torbenconto/bambulabs_api"
+	"github.com/torbenconto/bambulabs_api/light"
 	"net"
 )
 
@@ -60,7 +61,7 @@ func main() {
     }
 
 	// Attempt to toggle light (UNTESTED FUNCTION)
-	err = printer.LightOn()
+	err = printer.Light(light.ChamberLight, true)
 	if err != nil {
 		panic(err)
 	}

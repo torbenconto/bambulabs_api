@@ -3,6 +3,9 @@ package bambulabs_api
 import (
 	"errors"
 	"fmt"
+	_fan "github.com/torbenconto/bambulabs_api/fan"
+	_light "github.com/torbenconto/bambulabs_api/light"
+	_speed "github.com/torbenconto/bambulabs_api/speed"
 	"net"
 	"strconv"
 	"time"
@@ -78,14 +81,28 @@ func (p *Printer) GetPrinterState() state.GcodeState {
 
 //region Publishing functions (Set)
 
-func (p *Printer) LightOn() error {
-	command := mqtt.NewCommand(mqtt.System).AddCommandField("light_mode").AddParamField("on")
+// Light sets a given light to on (set=true) or off (set=false)
+func (p *Printer) Light(light _light.Light, set bool) error {
+	// This light_mode is currently believed to be deprecated, leaving here commented in case it ends up being useful later.
+	//command, err := mqtt.NewCommand(mqtt.System).AddCommandField("light_mode").AddParamField("on").JSON()
+	//if err != nil {
+	//	return err
+	//}
 
-	return p.MQTTClient.Publish(command)
-}
+	var mode string
+	if set {
+		mode = "on"
+	} else {
+		mode = "off"
+	}
 
-func (p *Printer) LightOff() error {
-	command := mqtt.NewCommand(mqtt.System).AddCommandField("light_mode").AddParamField("off")
+	// https://github.com/Doridian/OpenBambuAPI/blob/main/mqtt.md#systemledctrl
+	command := mqtt.NewCommand(mqtt.System).AddCommandField("ledctrl").AddField("led_node", light).AddField("led_mode", mode)
+	// Add fields only used for mode "flashing" but required nonetheless
+	command.AddField("led_on_time", 500)
+	command.AddField("led_off_time", 500)
+	command.AddField("loop_times", 1)
+	command.AddField("interval_time", 1000)
 
 	return p.MQTTClient.Publish(command)
 }
@@ -166,7 +183,7 @@ func (p *Printer) SetBedTemperatureAndWaitUntilReached(temperature int) error {
 }
 
 // SetFanSpeed sets the speed of fan to a speed between 0-255
-func (p *Printer) SetFanSpeed(fan Fan, speed int) error {
+func (p *Printer) SetFanSpeed(fan _fan.Fan, speed int) error {
 	if speed < 0 || speed > 255 {
 		return errors.New("speed must be between 0 and 255")
 	}
@@ -209,7 +226,7 @@ func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellat
 }
 
 // SetPrintSpeed sets the print speed to a specified speed of type Speed (Silent, Standard, Sport, Ludicrous)
-func (p *Printer) SetPrintSpeed(speed Speed) error {
+func (p *Printer) SetPrintSpeed(speed _speed.Speed) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("print_speed").AddParamField(speed)
 
 	return p.MQTTClient.Publish(command)
