@@ -1,16 +1,17 @@
-# Bambulabs API Golang Library
+<div align="center">
+    <picture>
+      <source srcset="assets/Logo-light.svg" media="(prefers-color-scheme: dark)">
+      <source srcset="assets/Logo-dark.svg" media="(prefers-color-scheme: light)">
+      <img src="assets/Logo-dark.svg" alt="Logo">
+    </picture>
 
-This repository provides a **Golang** library to interface with **Bambulabs 3D printers** via network protocols. It allows easy integration of Bambulabs printers into your Go applications, providing access to printer data, control over printer features, and more.
-
-[![Discord Chat](https://img.shields.io/discord/7wmQ6kGBef?color=7289da&label=Join%20the%20Discord&logo=discord&logoColor=white)](https://discord.gg/7wmQ6kGBef)  
-[![Go Report Card](https://goreportcard.com/badge/github.com/torbenconto/bambulabs_api)](https://goreportcard.com/report/github.com/torbenconto/bambulabs_api)  
-[![GoDoc](https://pkg.go.dev/badge/github.com/torbenconto/bambulabs_api)](https://pkg.go.dev/github.com/torbenconto/bambulabs_api)  
-[![GitHub License](https://img.shields.io/github/license/torbenconto/bambulabs_api)](https://github.com/torbenconto/bambulabs_api/blob/main/LICENSE)
+<h1>Bambulabs API Golang Library</h1>
+</div>
 
 > [!IMPORTANT]
 > This app is still in development and no public release is available. Consider [starring the repository](https://docs.github.com/en/get-started/exploring-projects-on-github/saving-repositories-with-stars) to show your support.
 
----
+This repository provides a **Golang** library to interface with **Bambulabs 3D printers** via network protocols. It allows easy integration of Bambulabs printers into your Go applications, providing access to printer data, control over printer features, and more.
 
 ## Table of Contents
 
@@ -21,7 +22,6 @@ This repository provides a **Golang** library to interface with **Bambulabs 3D p
 - [Contributing](#contributing)
 - [Links & Resources](#links--resources)
 
----
 
 ## Installation
 
@@ -31,7 +31,6 @@ To install the Bambulabs API Golang library, use the `go get` command:
 go get -u github.com/torbenconto/bambulabs_api
 ```
 
----
 
 ## Connecting to a Printer
 
@@ -57,7 +56,6 @@ if err != nil {
 }
 ```
 
----
 
 ## Basic Examples
 
@@ -104,15 +102,12 @@ func main() {
 
 **Note**: The `Light` function in the above example is untested. Ensure to validate functionality according to your printer's firmware.
 
----
 
 ## Development
 
 ### Current Status: UNTESTED
 
 This library is in active development. While many features have been implemented, certain functions are not fully tested across all supported devices. Contributions are welcome to improve functionality and expand coverage.
-
----
 
 ## Contributing
 
@@ -126,7 +121,6 @@ We welcome contributions to improve this project! If you’d like to contribute,
 
 Please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file for more details on how to contribute.
 
----
 
 ## Links & Resources
 
@@ -134,13 +128,9 @@ Please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file for more details on 
 - [Bambulab Wiki](https://wiki.bambulab.com)
 - [Bambulab Support](https://support.bambulab.com)
 
----
-
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
-
----
 
 Feel free to join the community and connect with us for help, suggestions, or collaborations:  
 [Join the Discord!](https://discord.gg/7wmQ6kGBef)
