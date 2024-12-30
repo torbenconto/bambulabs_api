@@ -114,8 +114,8 @@ func (c *Client) Disconnect() {
 	log.Println("MQTT client disconnected")
 }
 
-func (c *Client) Publish(payload string) error {
-	data, err := json.Marshal(payload)
+func (c *Client) Publish(command *Command) error {
+	data, err := command.JSON()
 	if err != nil {
 		return err
 	}
@@ -135,10 +135,7 @@ func (c *Client) update() error {
 
 	c.lastUpdate = time.Now()
 	// Return of this message is caught by the onmessage handler which update c.data
-	return c.Publish(Command{
-		Type:    Pushing,
-		Command: "push_all",
-	}.JSON())
+	return c.Publish(NewCommand(Pushing).AddCommandField("push_all"))
 }
 
 func (c *Client) Data() types.Data {
