@@ -8,7 +8,6 @@
 <h1>Bambulabs API Golang Library</h1>
 </div>
 
----
 > [!IMPORTANT]
 > This app is still in development and no public release is available. Consider [starring the repository](https://docs.github.com/en/get-started/exploring-projects-on-github/saving-repositories-with-stars) to show your support.
 
