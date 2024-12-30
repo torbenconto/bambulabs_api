@@ -265,14 +265,22 @@ func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellat
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("calibration").AddParamField(strconv.Itoa(bitmask))
 
-	return p.MQTTClient.Publish(command)
+	if err := p.MQTTClient.Publish(command); err != nil {
+		return fmt.Errorf("error calibrating: %w", err)
+	}
+
+	return nil
 }
 
 // SetPrintSpeed sets the print speed to a specified speed of type Speed (Silent, Standard, Sport, Ludicrous)
 func (p *Printer) SetPrintSpeed(speed _speed.Speed) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("print_speed").AddParamField(speed)
 
-	return p.MQTTClient.Publish(command)
+	if err := p.MQTTClient.Publish(command); err != nil {
+		return fmt.Errorf("error setting print speed: %w", err)
+	}
+
+	return nil
 }
 
 //TODO: Load/Unload filament, AMS stuff, set filament, set bed height
