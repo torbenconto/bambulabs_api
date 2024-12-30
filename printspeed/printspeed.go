@@ -1,4 +1,4 @@
-package print_speed
+package printspeed
 
 type PrintSpeed int
 

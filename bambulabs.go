@@ -5,7 +5,7 @@ import (
 	"fmt"
 	_fan "github.com/torbenconto/bambulabs_api/fan"
 	_light "github.com/torbenconto/bambulabs_api/light"
-	_print_speed "github.com/torbenconto/bambulabs_api/print_speed"
+	_printspeed "github.com/torbenconto/bambulabs_api/printspeed"
 	"net"
 	"strconv"
 	"time"
@@ -224,7 +224,7 @@ func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellat
 }
 
 // SetPrintSpeed sets the print speed to a specified speed of type Speed (Silent, Standard, Sport, Ludicrous)
-func (p *Printer) SetPrintSpeed(speed _print_speed.PrintSpeed) error {
+func (p *Printer) SetPrintSpeed(speed _printspeed.PrintSpeed) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("print_speed").AddParamField(speed)
 
 	return p.MQTTClient.Publish(command)
