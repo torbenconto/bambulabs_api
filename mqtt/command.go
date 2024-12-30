@@ -31,13 +31,13 @@ func (c *Command) AddField(key string, value interface{}) *Command {
 	return c
 }
 
-func (c *Command) AddCommandField(value string) *Command {
+func (c *Command) AddCommandField(value interface{}) *Command {
 	c.AddField("command", value)
 
 	return c
 }
 
-func (c *Command) AddParamField(value string) *Command {
+func (c *Command) AddParamField(value interface{}) *Command {
 	c.AddField("param", value)
 
 	return c
