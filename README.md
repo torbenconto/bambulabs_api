@@ -1,4 +1,4 @@
-<div align="center" style="margin-left: 45px;">
+<div align="center">
     <picture>
       <source srcset="assets/Logo-light.svg" media="(prefers-color-scheme: dark)">
       <source srcset="assets/Logo-dark.svg" media="(prefers-color-scheme: light)">
