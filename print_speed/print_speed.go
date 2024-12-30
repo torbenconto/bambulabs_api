@@ -1,15 +1,15 @@
-package speed
+package print_speed
 
-type Speed int
+type PrintSpeed int
 
 const (
-	Silent Speed = iota + 1
+	Silent PrintSpeed = iota + 1
 	Standard
 	Sport
 	Ludicrous
 )
 
-func (s Speed) String() string {
+func (s PrintSpeed) String() string {
 	switch s {
 	case Silent:
 		return "Silent"
