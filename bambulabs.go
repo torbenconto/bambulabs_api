@@ -5,7 +5,7 @@ import (
 	"fmt"
 	_fan "github.com/torbenconto/bambulabs_api/fan"
 	_light "github.com/torbenconto/bambulabs_api/light"
-	_speed "github.com/torbenconto/bambulabs_api/speed"
+	_printspeed "github.com/torbenconto/bambulabs_api/printspeed"
 	"net"
 	"strconv"
 	"time"
@@ -13,8 +13,6 @@ import (
 	"github.com/torbenconto/bambulabs_api/ftp"
 	"github.com/torbenconto/bambulabs_api/mqtt"
 	"github.com/torbenconto/bambulabs_api/state"
-	"github.com/torbenconto/bambulabs_api/types"
-	"github.com/torbenconto/bambulabs_api/util"
 )
 
 type Printer struct {
@@ -74,7 +72,7 @@ func (p *Printer) Disconnect() error {
 }
 
 // Data returns the current state of the printer as a Data struct
-func (p *Printer) Data() types.Data {
+func (p *Printer) Data() Data {
 	return p.MQTTClient.Data()
 }
 
@@ -160,7 +158,7 @@ func (p *Printer) ResumePrint() error {
 // SendGcode sends gcode command lines in a list to the printer
 func (p *Printer) SendGcode(gcode []string) error {
 	for _, g := range gcode {
-		if !util.IsValidGCode(g) {
+		if !isValidGCode(g) {
 			return fmt.Errorf("invalid gcode: %s", g)
 		}
 
@@ -170,7 +168,6 @@ func (p *Printer) SendGcode(gcode []string) error {
 			return fmt.Errorf("error sending gcode line %s: %w", g, err)
 		}
 	}
-
 	return nil
 }
 
@@ -273,7 +270,7 @@ func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellat
 }
 
 // SetPrintSpeed sets the print speed to a specified speed of type Speed (Silent, Standard, Sport, Ludicrous)
-func (p *Printer) SetPrintSpeed(speed _speed.Speed) error {
+func (p *Printer) SetPrintSpeed(speed _printspeed.PrintSpeed) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("print_speed").AddParamField(speed)
 
 	if err := p.MQTTClient.Publish(command); err != nil {
