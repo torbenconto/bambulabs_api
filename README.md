@@ -1,8 +1,8 @@
 # Bambulabs API Golang Library
 
 <picture>
-  <source srcset="assets/Logo-dark.svg" media="(prefers-color-scheme: dark)">
-  <source srcset="assets/Logo-light.svg" media="(prefers-color-scheme: light)">
+  <source srcset="assets/Logo-light.svg" media="(prefers-color-scheme: dark)">
+  <source srcset="assets/Logo-dark.svg" media="(prefers-color-scheme: light)">
   <img src="assets/Logo-dark.svg" alt="Logo">
 </picture>
 
