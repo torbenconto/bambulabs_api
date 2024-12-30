@@ -232,14 +232,22 @@ func (p *Printer) SetFanSpeed(fan _fan.Fan, speed int) error {
 func (p *Printer) SetNozzleTemperature(temperature int) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M104 S%d", temperature))
 
-	return p.MQTTClient.Publish(command)
+	if err := p.MQTTClient.Publish(command); err != nil {
+		return fmt.Errorf("error setting nozzle temperature: %w", err)
+	}
+
+	return nil
 }
 
 // SetNozzleTemperatureAndWaitUntilReached sets the nozzle temperature to a specified number in degrees Celsius and waits for it to be reached using a gcode command.
 func (p *Printer) SetNozzleTemperatureAndWaitUntilReached(temperature int) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M109 S%d", temperature))
 
-	return p.MQTTClient.Publish(command)
+	if err := p.MQTTClient.Publish(command); err != nil {
+		return fmt.Errorf("error setting nozzle temperature and waiting for it to be reached: %w", err)
+	}
+
+	return nil
 }
 
 func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellation bool) error {
