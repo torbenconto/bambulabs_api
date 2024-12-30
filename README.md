@@ -1,10 +1,13 @@
 # Bambulabs API Golang Library
 
-<picture>
-  <source srcset="assets/Logo-light.svg" media="(prefers-color-scheme: dark)">
-  <source srcset="assets/Logo-dark.svg" media="(prefers-color-scheme: light)">
-  <img src="assets/Logo-dark.svg" alt="Logo">
-</picture>
+<div align="center">
+    <picture>
+      <source srcset="assets/Logo-light.svg" media="(prefers-color-scheme: dark)">
+      <source srcset="assets/Logo-dark.svg" media="(prefers-color-scheme: light)">
+      <img src="assets/Logo-dark.svg" alt="Logo">
+    </picture>
+</div>
+
 
 This repository provides a **Golang** library to interface with **Bambulabs 3D printers** via network protocols. It allows easy integration of Bambulabs printers into your Go applications, providing access to printer data, control over printer features, and more.
 
