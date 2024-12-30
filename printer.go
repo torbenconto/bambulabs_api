@@ -66,7 +66,11 @@ func (p *Printer) Connect() error {
 
 func (p *Printer) Disconnect() error {
 	p.MQTTClient.Disconnect()
-	return p.FTPClient.Disconnect()
+	if err := p.FTPClient.Disconnect(); err != nil {
+		return fmt.Errorf("FTPClient.Disconnect() error %w", err)
+	}
+
+	return nil
 }
 
 // Data returns the current state of the printer as a Data struct
