@@ -1,4 +1,4 @@
-package bambulabs_api
+package data
 
 type Data struct {
 	Print struct {

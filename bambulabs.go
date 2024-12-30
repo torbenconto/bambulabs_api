@@ -3,6 +3,7 @@ package bambulabs_api
 import (
 	"errors"
 	"fmt"
+	"github.com/torbenconto/bambulabs_api/data"
 	_fan "github.com/torbenconto/bambulabs_api/fan"
 	_light "github.com/torbenconto/bambulabs_api/light"
 	_printspeed "github.com/torbenconto/bambulabs_api/printspeed"
@@ -72,7 +73,7 @@ func (p *Printer) Disconnect() error {
 }
 
 // Data returns the current state of the printer as a Data struct
-func (p *Printer) Data() Data {
+func (p *Printer) Data() data.Data {
 	return p.MQTTClient.Data()
 }
 
