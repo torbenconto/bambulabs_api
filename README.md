@@ -1,4 +1,11 @@
-<div align="center">
+<style>
+#logo {
+    margin-left : 15px;
+}
+
+</style>
+
+<div align="center" id="logo">
     <picture>
       <source srcset="assets/Logo-light.svg" media="(prefers-color-scheme: dark)">
       <source srcset="assets/Logo-dark.svg" media="(prefers-color-scheme: light)">
