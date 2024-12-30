@@ -2,6 +2,8 @@
 
 Golang library for interfacing with bambulabs printers.
 
+[Join the Discord!](https://discord.gg/7wmQ6kGBef)
+
 ## Installation
 ```
     go get -u github.com/torbenconto/bambulabs_api
