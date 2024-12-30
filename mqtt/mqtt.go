@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/torbenconto/bambulabs_api/types"
+	"github.com/torbenconto/bambulabs_api/data"
 	"log"
 	"net"
 	"reflect"
@@ -42,7 +42,7 @@ type Client struct {
 	client paho.Client
 
 	mutex      sync.Mutex
-	data       types.Data
+	data       data.Data
 	lastUpdate time.Time
 }
 
@@ -60,7 +60,7 @@ func NewClient(config *ClientConfig) *Client {
 
 	c := &Client{
 		config:     config,
-		data:       types.Data{},
+		data:       data.Data{},
 		lastUpdate: time.Now(),
 	}
 
@@ -82,7 +82,7 @@ func NewClient(config *ClientConfig) *Client {
 		defer c.mutex.Unlock()
 
 		payload := msg.Payload()
-		var received types.Data
+		var received data.Data
 
 		if err := json.Unmarshal(payload, &received); err != nil {
 			log.Printf("Error unmarshaling message: %v", err)
@@ -138,7 +138,7 @@ func (c *Client) update() error {
 	return c.Publish(NewCommand(Pushing).AddCommandField("push_all"))
 }
 
-func (c *Client) Data() types.Data {
+func (c *Client) Data() data.Data {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
