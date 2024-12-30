@@ -5,7 +5,7 @@
       <img src="assets/Logo-dark.svg" alt="Logo">
     </picture>
 
-    <h1>Bambulabs API Golang Library</h1>
+<h1>Bambulabs API Golang Library</h1>
 </div>
 
 
