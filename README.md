@@ -8,13 +8,11 @@
 <h1>Bambulabs API Golang Library</h1>
 </div>
 
+---
+> [!IMPORTANT]
+> This app is still in development and no public release is available. Consider [starring the repository](https://docs.github.com/en/get-started/exploring-projects-on-github/saving-repositories-with-stars) to show your support.
 
 This repository provides a **Golang** library to interface with **Bambulabs 3D printers** via network protocols. It allows easy integration of Bambulabs printers into your Go applications, providing access to printer data, control over printer features, and more.
-
-[![Discord Chat](https://img.shields.io/discord/7wmQ6kGBef?color=7289da&label=Join%20the%20Discord&logo=discord&logoColor=white)](https://discord.gg/7wmQ6kGBef)  
-[![Go Report Card](https://goreportcard.com/badge/github.com/torbenconto/bambulabs_api)](https://goreportcard.com/report/github.com/torbenconto/bambulabs_api)  
-[![GoDoc](https://pkg.go.dev/badge/github.com/torbenconto/bambulabs_api)](https://pkg.go.dev/github.com/torbenconto/bambulabs_api)  
-[![GitHub License](https://img.shields.io/github/license/torbenconto/bambulabs_api)](https://github.com/torbenconto/bambulabs_api/blob/main/LICENSE)
 
 ---
 
