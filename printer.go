@@ -79,26 +79,25 @@ func (p *Printer) GetPrinterState() state.GcodeState {
 //region Publishing functions (Set)
 
 func (p *Printer) LightOn() error {
-	return p.MQTTClient.Publish(mqtt.Command{
-		Type:    mqtt.System,
-		Command: "light_mode",
-		Param:   "on",
-	}.JSON())
+	command := mqtt.NewCommand(mqtt.System).AddCommandField("light_mode").AddParamField("on")
+
+	return p.MQTTClient.Publish(command)
 }
 
 func (p *Printer) LightOff() error {
-	return p.MQTTClient.Publish(mqtt.Command{
-		Type:    mqtt.System,
-		Command: "light_mode",
-		Param:   "off",
-	}.JSON())
+	command := mqtt.NewCommand(mqtt.System).AddCommandField("light_mode").AddParamField("off")
+
+	return p.MQTTClient.Publish(command)
 }
 
 func (p *Printer) StopPrint() error {
-	return p.MQTTClient.Publish(mqtt.Command{
-		Type:    mqtt.Print,
-		Command: "stop",
-	}.JSON())
+	if p.GetPrinterState() == state.IDLE {
+		return nil
+	}
+
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("stop")
+
+	return p.MQTTClient.Publish(command)
 }
 
 func (p *Printer) PausePrint() error {
@@ -106,11 +105,9 @@ func (p *Printer) PausePrint() error {
 		return nil
 	}
 
-	return p.MQTTClient.Publish(
-		mqtt.Command{
-			Type:    mqtt.Print,
-			Command: "pause",
-		}.JSON())
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("pause")
+
+	return p.MQTTClient.Publish(command)
 }
 
 func (p *Printer) ResumePrint() error {
@@ -118,10 +115,9 @@ func (p *Printer) ResumePrint() error {
 		return nil
 	}
 
-	return p.MQTTClient.Publish(mqtt.Command{
-		Type:    mqtt.Print,
-		Command: "resume",
-	}.JSON())
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("resume")
+
+	return p.MQTTClient.Publish(command)
 }
 
 // SendGcode sends gcode command lines in a list to the printer
@@ -131,12 +127,10 @@ func (p *Printer) SendGcode(gcode []string) error {
 			return fmt.Errorf("invalid gcode: %s", g)
 		}
 
-		err := p.MQTTClient.Publish(
-			mqtt.Command{
-				Type:    mqtt.Print,
-				Command: "gcode_line",
-				Param:   g,
-			}.JSON())
+		command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(g)
+
+		err := p.MQTTClient.Publish(command)
+
 		if err != nil {
 			return err
 		}
@@ -146,12 +140,9 @@ func (p *Printer) SendGcode(gcode []string) error {
 
 // PrintGcodeFile prints a gcode file on the printer given an absolute path.
 func (p *Printer) PrintGcodeFile(filePath string) error {
-	return p.MQTTClient.Publish(
-		mqtt.Command{
-			Type:    mqtt.Print,
-			Command: "gcode_file",
-			Param:   filePath,
-		}.JSON())
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_file").AddParamField(filePath)
+
+	return p.MQTTClient.Publish(command)
 }
 
 func (p *Printer) Print3mfFile(fileName string, plate int, useAms bool) error {
@@ -162,47 +153,41 @@ func (p *Printer) Print3mfFile(fileName string, plate int, useAms bool) error {
 
 // SetBedTemperature sets the bed temperature to a specified number in degrees Celcius using a gcode command.
 func (p *Printer) SetBedTemperature(temperature int) error {
-	return p.MQTTClient.Publish(mqtt.Command{
-		Type:    mqtt.Print,
-		Command: "gcode_line",
-		Param:   fmt.Sprintf("M140 S%d\n", temperature),
-	}.JSON())
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M140 S%d", temperature))
+
+	return p.MQTTClient.Publish(command)
 }
 
 // SetBedTemperatureAndWaitUntilReached sets the bed temperature to a specified number in egrees Celcius and waits for it to be reached using a gcode command.
 func (p *Printer) SetBedTemperatureAndWaitUntilReached(temperature int) error {
-	return p.MQTTClient.Publish(mqtt.Command{
-		Type:    mqtt.Print,
-		Command: "gcode_line",
-		Param:   fmt.Sprintf("M190 S%d\n", temperature),
-	}.JSON())
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M190 S%d", temperature))
+
+	return p.MQTTClient.Publish(command)
 }
 
 // SetFanSpeed sets the speed of fan to a speed between 0-255
 func (p *Printer) SetFanSpeed(fan Fan, speed int) error {
-	return p.MQTTClient.Publish(mqtt.Command{
-		Type:    mqtt.Print,
-		Command: "gcode_line",
-		Param:   fmt.Sprintf("M106 P%d S%d\n", fan, speed),
-	}.JSON())
+	if speed < 0 || speed > 255 {
+		return errors.New("speed must be between 0 and 255")
+	}
+
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M106 P%d S%d", fan, speed))
+
+	return p.MQTTClient.Publish(command)
 }
 
 // SetNozzleTemperature sets the nozzle temperature to a specified number in degrees Celcius using a gcode command.
 func (p *Printer) SetNozzleTemperature(temperature int) error {
-	return p.MQTTClient.Publish(mqtt.Command{
-		Type:    mqtt.Print,
-		Command: "gcode_line",
-		Param:   fmt.Sprintf("M104 S%d\n", temperature),
-	}.JSON())
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M104 S%d", temperature))
+
+	return p.MQTTClient.Publish(command)
 }
 
 // SetNozzleTemperatureAndWaitUntilReached sets the nozzle temperature to a specified number in degrees Celcius and waits for it to be reached using a gcode command.
 func (p *Printer) SetNozzleTemperatureAndWaitUntilReached(temperature int) error {
-	return p.MQTTClient.Publish(mqtt.Command{
-		Type:    mqtt.Print,
-		Command: "gcode_line",
-		Param:   fmt.Sprintf("M109 S%d\n", temperature),
-	}.JSON())
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M109 S%d", temperature))
+
+	return p.MQTTClient.Publish(command)
 }
 
 func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellation bool) error {
@@ -218,20 +203,16 @@ func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellat
 		bitmask |= 1 << 3
 	}
 
-	return p.MQTTClient.Publish(mqtt.Command{
-		Type:    mqtt.Print,
-		Command: "calibration",
-		Param:   strconv.Itoa(bitmask),
-	}.JSON())
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("calibration").AddParamField(strconv.Itoa(bitmask))
+
+	return p.MQTTClient.Publish(command)
 }
 
 // SetPrintSpeed sets the print speed to a specified speed of type Speed (Silent, Standard, Sport, Ludicrous)
 func (p *Printer) SetPrintSpeed(speed Speed) error {
-	return p.MQTTClient.Publish(mqtt.Command{
-		Type:    mqtt.Print,
-		Command: "print_speed",
-		Param:   strconv.Itoa(int(speed)),
-	}.JSON())
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("print_speed").AddParamField(speed)
+
+	return p.MQTTClient.Publish(command)
 }
 
 //TODO: Load/Unload filament, AMS stuff, set filament, set bed height
