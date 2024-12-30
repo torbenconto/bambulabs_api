@@ -13,7 +13,6 @@
 
 This repository provides a **Golang** library to interface with **Bambulabs 3D printers** via network protocols. It allows easy integration of Bambulabs printers into your Go applications, providing access to printer data, control over printer features, and more.
 
-
 ## Table of Contents
 
 - [Installation](#installation)
