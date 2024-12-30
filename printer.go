@@ -216,12 +216,16 @@ func (p *Printer) SetBedTemperatureAndWaitUntilReached(temperature int) error {
 // SetFanSpeed sets the speed of fan to a speed between 0-255
 func (p *Printer) SetFanSpeed(fan _fan.Fan, speed int) error {
 	if speed < 0 || speed > 255 {
-		return errors.New("speed must be between 0 and 255")
+		return fmt.Errorf("invalid speed: %d; must be between 0 and 255", speed)
 	}
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M106 P%d S%d", fan, speed))
 
-	return p.MQTTClient.Publish(command)
+	if err := p.MQTTClient.Publish(command); err != nil {
+		return fmt.Errorf("error setting fan speed: %w", err)
+	}
+
+	return nil
 }
 
 // SetNozzleTemperature sets the nozzle temperature to a specified number in degrees Celsius using a gcode command.
