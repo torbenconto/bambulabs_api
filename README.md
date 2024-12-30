@@ -1,6 +1,3 @@
-Sure! Here's the raw text in a file format that you can easily copy and paste into a `.md` file:
-
-
 # Bambulabs API Golang Library
 
 This repository provides a **Golang** library to interface with **Bambulabs 3D printers** via network protocols. It allows easy integration of Bambulabs printers into your Go applications, providing access to printer data, control over printer features, and more.
