@@ -195,14 +195,22 @@ func (p *Printer) Print3mfFile(fileName string, plate int, useAms bool) error {
 func (p *Printer) SetBedTemperature(temperature int) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M140 S%d", temperature))
 
-	return p.MQTTClient.Publish(command)
+	if err := p.MQTTClient.Publish(command); err != nil {
+		return fmt.Errorf("error setting bed temperature: %w", err)
+	}
+
+	return nil
 }
 
 // SetBedTemperatureAndWaitUntilReached sets the bed temperature to a specified number in degrees Celsius and waits for it to be reached using a gcode command.
 func (p *Printer) SetBedTemperatureAndWaitUntilReached(temperature int) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M190 S%d", temperature))
 
-	return p.MQTTClient.Publish(command)
+	if err := p.MQTTClient.Publish(command); err != nil {
+		return fmt.Errorf("error setting bed temperature and waiting for it to be reached: %w", err)
+	}
+
+	return nil
 }
 
 // SetFanSpeed sets the speed of fan to a speed between 0-255
