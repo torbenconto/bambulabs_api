@@ -133,7 +133,5 @@ Please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file for more details on 
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
 
----
-
 Feel free to join the community and connect with us for help, suggestions, or collaborations:  
 [Join the Discord!](https://discord.gg/7wmQ6kGBef)
