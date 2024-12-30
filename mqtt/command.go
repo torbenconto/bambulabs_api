@@ -31,8 +31,14 @@ func (c *Command) AddField(key string, value interface{}) *Command {
 	return c
 }
 
-func (c *Command) AddCommandField(param string) *Command {
-	c.AddField("command", param)
+func (c *Command) AddCommandField(value string) *Command {
+	c.AddField("command", value)
+
+	return c
+}
+
+func (c *Command) AddParamField(value string) *Command {
+	c.AddField("param", value)
 
 	return c
 }
