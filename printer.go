@@ -108,7 +108,11 @@ func (p *Printer) Light(light _light.Light, set bool) error {
 	command.AddField("loop_times", 1)
 	command.AddField("interval_time", 1000)
 
-	return p.MQTTClient.Publish(command)
+	if err := p.MQTTClient.Publish(command); err != nil {
+		return fmt.Errorf("error setting light %s: %w", light, err)
+	}
+
+	return nil
 }
 
 func (p *Printer) StopPrint() error {
@@ -118,7 +122,11 @@ func (p *Printer) StopPrint() error {
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("stop")
 
-	return p.MQTTClient.Publish(command)
+	if err := p.MQTTClient.Publish(command); err != nil {
+		return fmt.Errorf("error stopping print: %w", err)
+	}
+
+	return nil
 }
 
 func (p *Printer) PausePrint() error {
@@ -128,7 +136,11 @@ func (p *Printer) PausePrint() error {
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("pause")
 
-	return p.MQTTClient.Publish(command)
+	if err := p.MQTTClient.Publish(command); err != nil {
+		return fmt.Errorf("error pausing print: %w", err)
+	}
+
+	return nil
 }
 
 func (p *Printer) ResumePrint() error {
@@ -138,7 +150,11 @@ func (p *Printer) ResumePrint() error {
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("resume")
 
-	return p.MQTTClient.Publish(command)
+	if err := p.MQTTClient.Publish(command); err != nil {
+		return fmt.Errorf("error resuming print: %w", err)
+	}
+
+	return nil
 }
 
 // SendGcode sends gcode command lines in a list to the printer
