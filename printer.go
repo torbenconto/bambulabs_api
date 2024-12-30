@@ -1,6 +1,7 @@
 package bambulabs_api
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -155,7 +156,8 @@ func (p *Printer) PrintGcodeFile(filePath string) error {
 
 func (p *Printer) Print3mfFile(fileName string, plate int, useAms bool) error {
 	// Probably doesent work. Need to check the correct format of the command
-	return p.MQTTClient.Publish(`{"print": {"command": "project_file", "param": "Metadata/plate_` + string(plate) + `.gcode", "subtask_name": ` + fileName + `, "use_ams": ` + strconv.FormatBool(useAms) + `"bed_leveling": true, "url": "ftp://"` + fileName + `, "bed_type": "auto", "flow_cali": true, "vibration_cali": true, "layer_inspect: true", "ams_mapping": [0]}}`)
+	//return p.MQTTClient.Publish(`{"print": {"command": "project_file", "param": "Metadata/plate_` + string(plate) + `.gcode", "subtask_name": ` + fileName + `, "use_ams": ` + strconv.FormatBool(useAms) + `"bed_leveling": true, "url": "ftp://"` + fileName + `, "bed_type": "auto", "flow_cali": true, "vibration_cali": true, "layer_inspect: true", "ams_mapping": [0]}}`)
+	return errors.ErrUnsupported
 }
 
 // SetBedTemperature sets the bed temperature to a specified number in degrees Celcius using a gcode command.
