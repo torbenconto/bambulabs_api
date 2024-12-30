@@ -7,6 +7,9 @@ This repository provides a **Golang** library to interface with **Bambulabs 3D p
 [![GoDoc](https://pkg.go.dev/badge/github.com/torbenconto/bambulabs_api)](https://pkg.go.dev/github.com/torbenconto/bambulabs_api)  
 [![GitHub License](https://img.shields.io/github/license/torbenconto/bambulabs_api)](https://github.com/torbenconto/bambulabs_api/blob/main/LICENSE)
 
+> [!IMPORTANT]
+> This app is still in development and no public release is available. Consider [starring the repository](https://docs.github.com/en/get-started/exploring-projects-on-github/saving-repositories-with-stars) to show your support.
+
 ---
 
 ## Table of Contents
