@@ -1,11 +1,11 @@
-package util
+package bambulabs_api
 
 import (
 	"regexp"
 	"strings"
 )
 
-func IsValidGCode(line string) bool {
+func isValidGCode(line string) bool {
 	line = strings.Split(line, ";")[0]
 	line = strings.TrimSpace(line)
 
