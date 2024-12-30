@@ -1,5 +1,3 @@
-Sure! Below is a sample `CONTRIBUTING.md` file to guide potential contributors. This file provides clear steps on how to contribute to the repository, the project's code of conduct, and some guidelines for writing good contributions.
-
 # Contributing to Bambulabs API Golang Library
 
 Thank you for considering contributing to the **Bambulabs API Golang Library**! We welcome all contributions, whether it's reporting a bug, suggesting a new feature, or submitting a pull request with code improvements.
