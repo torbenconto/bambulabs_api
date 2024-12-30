@@ -166,12 +166,11 @@ func (p *Printer) SendGcode(gcode []string) error {
 
 		command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(g)
 
-		err := p.MQTTClient.Publish(command)
-
-		if err != nil {
-			return err
+		if err := p.MQTTClient.Publish(command); err != nil {
+			return fmt.Errorf("error sending gcode line %s: %w", g, err)
 		}
 	}
+
 	return nil
 }
 
@@ -179,7 +178,11 @@ func (p *Printer) SendGcode(gcode []string) error {
 func (p *Printer) PrintGcodeFile(filePath string) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_file").AddParamField(filePath)
 
-	return p.MQTTClient.Publish(command)
+	if err := p.MQTTClient.Publish(command); err != nil {
+		return fmt.Errorf("error printing gcode file %s: %w", filePath, err)
+	}
+
+	return nil
 }
 
 func (p *Printer) Print3mfFile(fileName string, plate int, useAms bool) error {
