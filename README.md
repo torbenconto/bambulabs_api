@@ -1,11 +1,11 @@
-# Bambulabs API Golang Library
-
 <div align="center">
     <picture>
       <source srcset="assets/Logo-light.svg" media="(prefers-color-scheme: dark)">
       <source srcset="assets/Logo-dark.svg" media="(prefers-color-scheme: light)">
       <img src="assets/Logo-dark.svg" alt="Logo">
     </picture>
+
+    <h1>Bambulabs API Golang Library</h1>
 </div>
 
 
