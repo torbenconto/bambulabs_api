@@ -175,7 +175,7 @@ func (p *Printer) SetBedTemperature(temperature int) error {
 	return p.MQTTClient.Publish(command)
 }
 
-// SetBedTemperatureAndWaitUntilReached sets the bed temperature to a specified number in egrees Celcius and waits for it to be reached using a gcode command.
+// SetBedTemperatureAndWaitUntilReached sets the bed temperature to a specified number in degrees Celsius and waits for it to be reached using a gcode command.
 func (p *Printer) SetBedTemperatureAndWaitUntilReached(temperature int) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M190 S%d", temperature))
 
@@ -193,14 +193,14 @@ func (p *Printer) SetFanSpeed(fan _fan.Fan, speed int) error {
 	return p.MQTTClient.Publish(command)
 }
 
-// SetNozzleTemperature sets the nozzle temperature to a specified number in degrees Celcius using a gcode command.
+// SetNozzleTemperature sets the nozzle temperature to a specified number in degrees Celsius using a gcode command.
 func (p *Printer) SetNozzleTemperature(temperature int) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M104 S%d", temperature))
 
 	return p.MQTTClient.Publish(command)
 }
 
-// SetNozzleTemperatureAndWaitUntilReached sets the nozzle temperature to a specified number in degrees Celcius and waits for it to be reached using a gcode command.
+// SetNozzleTemperatureAndWaitUntilReached sets the nozzle temperature to a specified number in degrees Celsius and waits for it to be reached using a gcode command.
 func (p *Printer) SetNozzleTemperatureAndWaitUntilReached(temperature int) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M109 S%d", temperature))
 

@@ -4,7 +4,7 @@ type Fan int
 
 const (
 	PartFan Fan = iota + 1
-	AuxillaryFan
+	AuxiliaryFan
 	ChamberFan
 )
 
@@ -12,8 +12,8 @@ func (f Fan) String() string {
 	switch f {
 	case PartFan:
 		return "Part Fan"
-	case AuxillaryFan:
-		return "Auxillary Fan"
+	case AuxiliaryFan:
+		return "Auxiliary Fan"
 	case ChamberFan:
 		return "Chamber Fan"
 	default:
