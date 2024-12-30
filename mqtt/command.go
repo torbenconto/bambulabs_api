@@ -1,6 +1,8 @@
 package mqtt
 
-import "fmt"
+import (
+	"encoding/json"
+)
 
 type MessageType string
 
@@ -11,17 +13,41 @@ const (
 )
 
 type Command struct {
-	Type    MessageType
-	Command string
-	Param   string
+	Type MessageType
+
+	fields map[string]interface{}
 }
 
-func (c Command) JSON() string {
-	format := `{"%s": {"command": "%s", "param": "%s"}}`
-	if c.Command == "calibration" {
-		format = `{"%s": {"command": "%s", "option": "%s"}}`
-	} else if c.Type == System {
-		format = `{"%s": {"%s": "%s"}}`
+func NewCommand(msgType MessageType) *Command {
+	return &Command{
+		Type:   msgType,
+		fields: make(map[string]interface{}),
 	}
-	return fmt.Sprintf(format, c.Type, c.Command, c.Param)
+}
+
+func (c *Command) AddField(key string, value interface{}) *Command {
+	c.fields[key] = value
+
+	return c
+}
+
+func (c *Command) AddCommandField(param string) *Command {
+	c.AddField("command", param)
+
+	return c
+}
+
+func (c *Command) JSON() (string, error) {
+	data := make(map[string]interface{})
+	for k, v := range c.fields {
+		data[k] = v
+	}
+	message := map[string]interface{}{
+		string(c.Type): data,
+	}
+	jsonData, err := json.Marshal(message)
+	if err != nil {
+		return "", err
+	}
+	return string(jsonData), nil
 }
