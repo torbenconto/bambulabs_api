@@ -25,24 +25,28 @@ func NewCommand(msgType MessageType) *Command {
 	}
 }
 
+// AddField adds a field with the given key and value.
 func (c *Command) AddField(key string, value interface{}) *Command {
 	c.fields[key] = value
 
 	return c
 }
 
+// AddCommandField adds a field with key "command" and the given value.
 func (c *Command) AddCommandField(value interface{}) *Command {
 	c.AddField("command", value)
 
 	return c
 }
 
+// AddParamField adds a field with key "param" and the given value.
 func (c *Command) AddParamField(value interface{}) *Command {
 	c.AddField("param", value)
 
 	return c
 }
 
+// JSON returns the command as a JSON string.
 func (c *Command) JSON() (string, error) {
 	data := make(map[string]interface{})
 	for k, v := range c.fields {
