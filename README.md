@@ -88,7 +88,7 @@ func main() {
 		panic(err)
     }
 
-	// Attempt to toggle light (UNTESTED FUNCTION)
+	// Attempt to toggle light
 	err = printer.Light(light.ChamberLight, true)
 	if err != nil {
 		panic(err)
