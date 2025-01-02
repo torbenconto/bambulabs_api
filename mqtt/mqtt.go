@@ -115,12 +115,12 @@ func (c *Client) Disconnect() {
 }
 
 func (c *Client) Publish(command *Command) error {
-	data, err := command.JSON()
+	rawCommand, err := command.JSON()
 	if err != nil {
 		return err
 	}
 
-	token := c.client.Publish(CommandTopic, 0, false, data)
+	token := c.client.Publish(CommandTopic, 0, false, rawCommand)
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
