@@ -21,9 +21,9 @@ import (
 )
 
 const (
-	Clientid     = "golang-bambulabs-api"
-	Topic        = "/device/%s/report"
-	CommandTopic = "/device/%s/request"
+	clientid     = "golang-bambulabs-api"
+	topic        = "/device/%s/report"
+	commandTopic = "/device/%s/request"
 )
 
 type ClientConfig struct {
@@ -50,7 +50,7 @@ func NewClient(config *ClientConfig) *Client {
 	options := paho.NewClientOptions()
 	// Maybe tls:// or tcp://
 	options.AddBroker("mqtts://" + config.Host.String() + ":" + strconv.Itoa(config.Port))
-	options.SetClientID(Clientid)
+	options.SetClientID(clientid)
 	options.SetUsername(config.Username)
 	options.SetPassword(config.AccessCode)
 	options.SetTLSConfig(&tls.Config{
@@ -66,7 +66,7 @@ func NewClient(config *ClientConfig) *Client {
 
 	// TODO: needs improvement
 	options.SetOnConnectHandler(func(client paho.Client) {
-		topic := fmt.Sprintf(Topic, config.Serial)
+		topic := fmt.Sprintf(topic, config.Serial)
 		if token := client.Subscribe(topic, 0, nil); token.Wait() && token.Error() != nil {
 			log.Printf("Error subscribing to topic %s: %s", topic, token.Error())
 		} else {
@@ -120,7 +120,7 @@ func (c *Client) Publish(command *Command) error {
 		return err
 	}
 
-	token := c.client.Publish(CommandTopic, 0, false, rawCommand)
+	token := c.client.Publish(commandTopic, 0, false, rawCommand)
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
