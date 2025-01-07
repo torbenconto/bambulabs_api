@@ -20,11 +20,14 @@ type Command struct {
 }
 
 func NewCommand(msgType MessageType) *Command {
-	return &Command{
+	cmd := &Command{
 		Type:   msgType,
 		id:     "0",
 		fields: make(map[string]interface{}),
 	}
+
+	return cmd.AddIdField(cmd.id)
+
 }
 
 // AddField adds a field with the given key and value.
@@ -48,6 +51,12 @@ func (c *Command) AddParamField(value interface{}) *Command {
 	return c
 }
 
+func (c *Command) AddIdField(id string) *Command {
+	c.AddField("sequence_id", id)
+
+	return c
+}
+
 // JSON returns the command as a JSON string.
 func (c *Command) JSON() (string, error) {
 	data := make(map[string]interface{})
@@ -56,7 +65,6 @@ func (c *Command) JSON() (string, error) {
 	}
 	message := map[string]interface{}{
 		string(c.Type): data,
-		"sequence_id":  c.id,
 	}
 	jsonData, err := json.Marshal(message)
 	if err != nil {
