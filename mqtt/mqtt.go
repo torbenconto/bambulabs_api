@@ -22,8 +22,8 @@ import (
 
 const (
 	clientid     = "golang-bambulabs-api"
-	topic        = "/device/%s/report"
-	commandTopic = "/device/%s/request"
+	topic        = "device/%s/report"
+	commandTopic = "device/%s/request"
 )
 
 type ClientConfig struct {
