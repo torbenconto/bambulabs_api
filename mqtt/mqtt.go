@@ -120,7 +120,7 @@ func (c *Client) Publish(command *Command) error {
 		return err
 	}
 
-	token := c.client.Publish(commandTopic, 0, false, rawCommand)
+	token := c.client.Publish(fmt.Sprintf(CommandTopic, c.config.Serial), 0, false, rawCommand)
 	if token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
