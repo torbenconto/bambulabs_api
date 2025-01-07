@@ -14,7 +14,7 @@ const (
 
 type Command struct {
 	Type MessageType
-	id   int
+	id   string
 
 	fields map[string]interface{}
 }
@@ -22,7 +22,7 @@ type Command struct {
 func NewCommand(msgType MessageType) *Command {
 	return &Command{
 		Type:   msgType,
-		id:     0,
+		id:     "0",
 		fields: make(map[string]interface{}),
 	}
 }
