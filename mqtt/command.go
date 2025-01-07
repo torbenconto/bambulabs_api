@@ -14,6 +14,7 @@ const (
 
 type Command struct {
 	Type MessageType
+	id   int
 
 	fields map[string]interface{}
 }
@@ -21,6 +22,7 @@ type Command struct {
 func NewCommand(msgType MessageType) *Command {
 	return &Command{
 		Type:   msgType,
+		id:     0,
 		fields: make(map[string]interface{}),
 	}
 }
@@ -54,6 +56,7 @@ func (c *Command) JSON() (string, error) {
 	}
 	message := map[string]interface{}{
 		string(c.Type): data,
+		"sequence_id":  c.id,
 	}
 	jsonData, err := json.Marshal(message)
 	if err != nil {
