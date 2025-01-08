@@ -49,6 +49,7 @@ func NewPrinter(ipAddr net.IP, accessCode, serial string) *Printer {
 	}
 }
 
+// Connect connects to the underlying clients.
 func (p *Printer) Connect() error {
 	err := p.MQTTClient.Connect()
 	if err != nil {
@@ -63,6 +64,7 @@ func (p *Printer) Connect() error {
 	return nil
 }
 
+// Disconnect disconnects from the underlying clients
 func (p *Printer) Disconnect() error {
 	p.MQTTClient.Disconnect()
 	if err := p.FTPClient.Disconnect(); err != nil {
@@ -72,19 +74,24 @@ func (p *Printer) Disconnect() error {
 	return nil
 }
 
-// Data returns the current state of the printer as a Data struct
+// Data returns the current state of the printer as a Data struct.
+// This function is currently working but problems exist with the underlying.
 func (p *Printer) Data() data.Data {
 	return p.MQTTClient.Data()
 }
 
-// GetPrinterState gets the current state of the printer
+// GetPrinterState gets the current state of the printer.
+// This function is currently working but problems exist with the underlying.
 func (p *Printer) GetPrinterState() state.GcodeState {
 	return state.GetGcodeState(p.MQTTClient.Data().Print.GcodeState)
 }
 
 //region Publishing functions (Set)
 
-// Light sets a given light to on (set=true) or off (set=false)
+// Light sets a given light to on (set=true) or off (set=false).
+// TODO: Implement light flashing.
+// This function is working and has been tested on:
+// - [x] X1 Carbon
 func (p *Printer) Light(light _light.Light, set bool) error {
 	// This light_mode is currently believed to be deprecated, leaving here commented in case it ends up being useful later.
 	//command, err := mqtt.NewCommand(mqtt.System).AddCommandField("light_mode").AddParamField("on").JSON()
@@ -114,6 +121,8 @@ func (p *Printer) Light(light _light.Light, set bool) error {
 	return nil
 }
 
+// StopPrint fully stops the current print job.
+// Function works independently but problems exist with the underlying.
 func (p *Printer) StopPrint() error {
 	if p.GetPrinterState() == state.IDLE {
 		return nil
@@ -128,6 +137,8 @@ func (p *Printer) StopPrint() error {
 	return nil
 }
 
+// PausePrint pauses the current print job.
+// Function works independently but problems exist with the underlying.
 func (p *Printer) PausePrint() error {
 	if p.GetPrinterState() == state.PAUSE {
 		return nil
@@ -142,6 +153,8 @@ func (p *Printer) PausePrint() error {
 	return nil
 }
 
+// ResumePrint resumes a paused print job.
+// Function works independently but problems exist with the underlying.
 func (p *Printer) ResumePrint() error {
 	if p.GetPrinterState() == state.RUNNING {
 		return nil
@@ -156,7 +169,9 @@ func (p *Printer) ResumePrint() error {
 	return nil
 }
 
-// SendGcode sends gcode command lines in a list to the printer
+// SendGcode sends gcode command lines in a list to the printer.
+// This function is working and has been tested on:
+// - [x] X1 Carbon
 func (p *Printer) SendGcode(gcode []string) error {
 	for _, g := range gcode {
 		if !isValidGCode(g) {
@@ -173,6 +188,7 @@ func (p *Printer) SendGcode(gcode []string) error {
 }
 
 // PrintGcodeFile prints a gcode file on the printer given an absolute path.
+// This function is untested
 func (p *Printer) PrintGcodeFile(filePath string) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_file").AddParamField(filePath)
 
@@ -211,7 +227,9 @@ func (p *Printer) SetBedTemperatureAndWaitUntilReached(temperature int) error {
 	return nil
 }
 
-// SetFanSpeed sets the speed of fan to a speed between 0-255
+// SetFanSpeed sets the speed of fan to a speed between 0-255.
+// This function is working and has been tested on:
+// - [x] X1 Carbon
 func (p *Printer) SetFanSpeed(fan _fan.Fan, speed int) error {
 	if speed < 0 || speed > 255 {
 		return fmt.Errorf("invalid speed: %d; must be between 0 and 255", speed)
@@ -227,6 +245,7 @@ func (p *Printer) SetFanSpeed(fan _fan.Fan, speed int) error {
 }
 
 // SetNozzleTemperature sets the nozzle temperature to a specified number in degrees Celsius using a gcode command.
+// This function is untested, but the underlying is working so it is likely to work.
 func (p *Printer) SetNozzleTemperature(temperature int) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M104 S%d", temperature))
 
@@ -238,6 +257,7 @@ func (p *Printer) SetNozzleTemperature(temperature int) error {
 }
 
 // SetNozzleTemperatureAndWaitUntilReached sets the nozzle temperature to a specified number in degrees Celsius and waits for it to be reached using a gcode command.
+// This function is untested, but the underlying is working so it is likely to work.
 func (p *Printer) SetNozzleTemperatureAndWaitUntilReached(temperature int) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M109 S%d", temperature))
 
@@ -248,6 +268,8 @@ func (p *Printer) SetNozzleTemperatureAndWaitUntilReached(temperature int) error
 	return nil
 }
 
+// Calibrate runs the printer through a calibration process.
+// This function is currently untested.
 func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellation bool) error {
 	bitmask := 0
 
@@ -271,6 +293,7 @@ func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellat
 }
 
 // SetPrintSpeed sets the print speed to a specified speed of type Speed (Silent, Standard, Sport, Ludicrous)
+// This function is currently untested.
 func (p *Printer) SetPrintSpeed(speed _printspeed.PrintSpeed) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("print_speed").AddParamField(speed)
 
