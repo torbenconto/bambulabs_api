@@ -2,6 +2,7 @@ package ftp
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
 	"github.com/secsy/goftp"
 	"net"
@@ -31,10 +32,13 @@ func (c *Client) Connect() error {
 	config := goftp.Config{
 		User:     c.config.Username,
 		Password: c.config.AccessCode,
-		//TLSConfig:          &tls.Config{InsecureSkipVerify: true},
-		TLSMode:            goftp.TLSImplicit,
-		DisableEPSV:        false,
-		ConnectionsPerHost: 1,
+		TLSConfig: &tls.Config{
+			InsecureSkipVerify: true,
+			ClientSessionCache: tls.NewLRUClientSessionCache(0),
+			ServerName:         c.config.Host.String(),
+		},
+
+		TLSMode: goftp.TLSImplicit,
 	}
 
 	address := fmt.Sprintf("%s:%d", c.config.Host.String(), c.config.Port)
