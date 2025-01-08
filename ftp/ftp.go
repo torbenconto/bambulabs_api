@@ -28,6 +28,9 @@ func NewClient(config *ClientConfig) *Client {
 	}
 }
 
+// Connect connects to the ftp server of a bambu printer.
+// This function is working and has been tested on:
+// - [x] X1 Carbon
 func (c *Client) Connect() error {
 	config := goftp.Config{
 		User:     c.config.Username,
@@ -51,6 +54,7 @@ func (c *Client) Connect() error {
 	return nil
 }
 
+// Disconnect disconnects from the ftp server.
 func (c *Client) Disconnect() error {
 	if c.conn != nil {
 		err := c.conn.Close()
@@ -62,14 +66,16 @@ func (c *Client) Disconnect() error {
 	return nil
 }
 
-func (c *Client) StoreFile(path string, data bytes.Buffer) error {
+// StoreFile stores file "file" into "path" on the server.
+func (c *Client) StoreFile(path string, file os.File) error {
 	if c.conn == nil {
 		return fmt.Errorf("not connected")
 	}
 
-	return c.conn.Store(path, &data)
+	return c.conn.Store(path, &file)
 }
 
+// RetrieveFile retrieves file "path" on the server and returns it's contents as a buffer.
 func (c *Client) RetrieveFile(path string) (bytes.Buffer, error) {
 	if c.conn == nil {
 		return bytes.Buffer{}, fmt.Errorf("not connected")
@@ -80,7 +86,8 @@ func (c *Client) RetrieveFile(path string) (bytes.Buffer, error) {
 	return data, err
 }
 
-func (c *Client) ListFiles(path string) ([]os.FileInfo, error) {
+// ListDir lists a given directory on the server and returns a list of the files and directories it contains as an array of os.FileInfo.
+func (c *Client) ListDir(path string) ([]os.FileInfo, error) {
 	if c.conn == nil {
 		return []os.FileInfo{}, fmt.Errorf("not connected")
 	}
@@ -88,6 +95,7 @@ func (c *Client) ListFiles(path string) ([]os.FileInfo, error) {
 	return c.conn.ReadDir(path)
 }
 
+// DeleteFile deletes file "path" on the ser
 func (c *Client) DeleteFile(path string) error {
 	if c.conn == nil {
 		return fmt.Errorf("not connected")
