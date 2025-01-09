@@ -5,7 +5,7 @@ import (
 	"fmt"
 	_fan "github.com/torbenconto/bambulabs_api/fan"
 	"github.com/torbenconto/bambulabs_api/internal/ftp"
-	mqtt2 "github.com/torbenconto/bambulabs_api/internal/mqtt"
+	"github.com/torbenconto/bambulabs_api/internal/mqtt"
 	_light "github.com/torbenconto/bambulabs_api/light"
 	_printspeed "github.com/torbenconto/bambulabs_api/printspeed"
 	"net"
@@ -21,7 +21,7 @@ type Printer struct {
 	accessCode string
 	serial     string
 
-	mqttClient *mqtt2.Client
+	mqttClient *mqtt.Client
 	ftpClient  *ftp.Client
 }
 
@@ -31,7 +31,7 @@ func NewPrinter(ipAddr net.IP, accessCode, serial string) *Printer {
 		accessCode: accessCode,
 		serial:     serial,
 
-		mqttClient: mqtt2.NewClient(&mqtt2.ClientConfig{
+		mqttClient: mqtt.NewClient(&mqtt.ClientConfig{
 			Host:       ipAddr,
 			Port:       8883,
 			Serial:     serial,
@@ -76,7 +76,7 @@ func (p *Printer) Disconnect() error {
 
 // Data returns the current state of the printer as a Data struct.
 // This function is currently working but problems exist with the underlying.
-func (p *Printer) Data() mqtt2.Message {
+func (p *Printer) Data() mqtt.Message {
 	return p.mqttClient.Data()
 }
 
@@ -107,7 +107,7 @@ func (p *Printer) Light(light _light.Light, set bool) error {
 	}
 
 	// https://github.com/Doridian/OpenBambuAPI/blob/main/mqtt.md#systemledctrl
-	command := mqtt2.NewCommand(mqtt2.System).AddCommandField("ledctrl").AddField("led_node", light).AddField("led_mode", mode)
+	command := mqtt.NewCommand(mqtt.System).AddCommandField("ledctrl").AddField("led_node", light).AddField("led_mode", mode)
 	// Add fields only used for mode "flashing" but required nonetheless
 	command.AddField("led_on_time", 500)
 	command.AddField("led_off_time", 500)
@@ -128,7 +128,7 @@ func (p *Printer) StopPrint() error {
 		return nil
 	}
 
-	command := mqtt2.NewCommand(mqtt2.Print).AddCommandField("stop")
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("stop")
 
 	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error stopping print: %w", err)
@@ -144,7 +144,7 @@ func (p *Printer) PausePrint() error {
 		return nil
 	}
 
-	command := mqtt2.NewCommand(mqtt2.Print).AddCommandField("pause")
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("pause")
 
 	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error pausing print: %w", err)
@@ -160,7 +160,7 @@ func (p *Printer) ResumePrint() error {
 		return nil
 	}
 
-	command := mqtt2.NewCommand(mqtt2.Print).AddCommandField("resume")
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("resume")
 
 	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error resuming print: %w", err)
@@ -178,7 +178,7 @@ func (p *Printer) SendGcode(gcode []string) error {
 			return fmt.Errorf("invalid gcode: %s", g)
 		}
 
-		command := mqtt2.NewCommand(mqtt2.Print).AddCommandField("gcode_line").AddParamField(g)
+		command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(g)
 
 		if err := p.mqttClient.Publish(command); err != nil {
 			return fmt.Errorf("error sending gcode line %s: %w", g, err)
@@ -190,7 +190,7 @@ func (p *Printer) SendGcode(gcode []string) error {
 // PrintGcodeFile prints a gcode file on the printer given an absolute path.
 // This function is untested
 func (p *Printer) PrintGcodeFile(filePath string) error {
-	command := mqtt2.NewCommand(mqtt2.Print).AddCommandField("gcode_file").AddParamField(filePath)
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_file").AddParamField(filePath)
 
 	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error printing gcode file %s: %w", filePath, err)
@@ -207,7 +207,7 @@ func (p *Printer) Print3mfFile(fileName string, plate int, useAms bool) error {
 
 // SetBedTemperature sets the bed temperature to a specified number in degrees Celcius using a gcode command.
 func (p *Printer) SetBedTemperature(temperature int) error {
-	command := mqtt2.NewCommand(mqtt2.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M140 S%d", temperature))
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M140 S%d", temperature))
 
 	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error setting bed temperature: %w", err)
@@ -218,7 +218,7 @@ func (p *Printer) SetBedTemperature(temperature int) error {
 
 // SetBedTemperatureAndWaitUntilReached sets the bed temperature to a specified number in degrees Celsius and waits for it to be reached using a gcode command.
 func (p *Printer) SetBedTemperatureAndWaitUntilReached(temperature int) error {
-	command := mqtt2.NewCommand(mqtt2.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M190 S%d", temperature))
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M190 S%d", temperature))
 
 	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error setting bed temperature and waiting for it to be reached: %w", err)
@@ -235,7 +235,7 @@ func (p *Printer) SetFanSpeed(fan _fan.Fan, speed int) error {
 		return fmt.Errorf("invalid speed: %d; must be between 0 and 255", speed)
 	}
 
-	command := mqtt2.NewCommand(mqtt2.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M106 P%d S%d", fan, speed))
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M106 P%d S%d", fan, speed))
 
 	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error setting fan speed: %w", err)
@@ -247,7 +247,7 @@ func (p *Printer) SetFanSpeed(fan _fan.Fan, speed int) error {
 // SetNozzleTemperature sets the nozzle temperature to a specified number in degrees Celsius using a gcode command.
 // This function is untested, but the underlying is working so it is likely to work.
 func (p *Printer) SetNozzleTemperature(temperature int) error {
-	command := mqtt2.NewCommand(mqtt2.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M104 S%d", temperature))
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M104 S%d", temperature))
 
 	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error setting nozzle temperature: %w", err)
@@ -259,7 +259,7 @@ func (p *Printer) SetNozzleTemperature(temperature int) error {
 // SetNozzleTemperatureAndWaitUntilReached sets the nozzle temperature to a specified number in degrees Celsius and waits for it to be reached using a gcode command.
 // This function is untested, but the underlying is working so it is likely to work.
 func (p *Printer) SetNozzleTemperatureAndWaitUntilReached(temperature int) error {
-	command := mqtt2.NewCommand(mqtt2.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M109 S%d", temperature))
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M109 S%d", temperature))
 
 	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error setting nozzle temperature and waiting for it to be reached: %w", err)
@@ -283,7 +283,7 @@ func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellat
 		bitmask |= 1 << 3
 	}
 
-	command := mqtt2.NewCommand(mqtt2.Print).AddCommandField("calibration").AddParamField(strconv.Itoa(bitmask))
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("calibration").AddParamField(strconv.Itoa(bitmask))
 
 	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error calibrating: %w", err)
@@ -295,7 +295,7 @@ func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellat
 // SetPrintSpeed sets the print speed to a specified speed of type Speed (Silent, Standard, Sport, Ludicrous)
 // This function is currently untested.
 func (p *Printer) SetPrintSpeed(speed _printspeed.PrintSpeed) error {
-	command := mqtt2.NewCommand(mqtt2.Print).AddCommandField("print_speed").AddParamField(speed)
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("print_speed").AddParamField(speed)
 
 	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error setting print speed: %w", err)
