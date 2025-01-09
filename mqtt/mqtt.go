@@ -18,8 +18,8 @@ const (
 	clientID          = "golang-bambulabs-api"
 	topicTemplate     = "device/%s/report"
 	commandTopic      = "device/%s/request"
-	qos               = 0                      // QoS level 0 (at most once)
-	connectionTimeout = 250 * time.Millisecond // Time to wait for in-flight messages during disconnect
+	qos               = 0
+	connectionTimeout = 250 * time.Millisecond
 )
 
 // ClientConfig holds the configuration details for the MQTT client.
