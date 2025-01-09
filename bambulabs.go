@@ -3,7 +3,6 @@ package bambulabs_api
 import (
 	"errors"
 	"fmt"
-	"github.com/torbenconto/bambulabs_api/data"
 	_fan "github.com/torbenconto/bambulabs_api/fan"
 	_light "github.com/torbenconto/bambulabs_api/light"
 	_printspeed "github.com/torbenconto/bambulabs_api/printspeed"
@@ -77,7 +76,7 @@ func (p *Printer) Disconnect() error {
 
 // Data returns the current state of the printer as a Data struct.
 // This function is currently working but problems exist with the underlying.
-func (p *Printer) Data() data.Data {
+func (p *Printer) Data() mqtt.Message {
 	return p.mqttClient.Data()
 }
 
