@@ -88,7 +88,7 @@ func main() {
 		panic(err)
     }
 
-	// Attempt to toggle light (UNTESTED FUNCTION)
+	// Attempt to toggle light
 	err = printer.Light(light.ChamberLight, true)
 	if err != nil {
 		panic(err)
@@ -100,12 +100,9 @@ func main() {
 }
 ```
 
-**Note**: The `Light` function in the above example is untested. Ensure to validate functionality according to your printer's firmware.
-
-
 ## Development
 
-### Current Status: UNTESTED
+### Current Status: PARTLY TESTED, IN PROGRESS
 
 This library is in active development. While many features have been implemented, certain functions are not fully tested across all supported devices. Contributions are welcome to improve functionality and expand coverage.
 
