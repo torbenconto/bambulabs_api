@@ -1,6 +1,6 @@
-package data
+package mqtt
 
-type Data struct {
+type Message struct {
 	Print struct {
 		Ams struct {
 			Ams []struct {
