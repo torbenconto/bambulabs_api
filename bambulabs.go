@@ -8,6 +8,7 @@ import (
 	_light "github.com/torbenconto/bambulabs_api/light"
 	_printspeed "github.com/torbenconto/bambulabs_api/printspeed"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
@@ -305,5 +306,29 @@ func (p *Printer) SetPrintSpeed(speed _printspeed.PrintSpeed) error {
 }
 
 //TODO: Load/Unload filament, AMS stuff, set filament, set bed height
+
+//endregion
+
+// region FTP functions
+
+// StoreFile calls the underlying ftp client to store a file on the printer.
+func (p *Printer) StoreFile(path string, file os.File) error {
+	return p.ftpClient.StoreFile(path, file)
+}
+
+// ListDirectory calls the underlying ftp client to list the contents of a directory on the printer.
+func (p *Printer) ListDirectory(path string) ([]os.FileInfo, error) {
+	return p.ftpClient.ListDir(path)
+}
+
+// RetrieveFile calls the underlying ftp client to retrieve a file from the printer.
+func (p *Printer) RetrieveFile(path string) (os.File, error) {
+	return p.ftpClient.RetrieveFile(path)
+}
+
+// DeleteFile calls the underlying ftp client to delete a file from the printer.
+func (p *Printer) DeleteFile(path string) error {
+	return p.ftpClient.DeleteFile(path)
+}
 
 //endregion
