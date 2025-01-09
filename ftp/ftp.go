@@ -1,7 +1,6 @@
 package ftp
 
 import (
-	"bytes"
 	"crypto/tls"
 	"fmt"
 	"github.com/secsy/goftp"
@@ -76,12 +75,12 @@ func (c *Client) StoreFile(path string, file os.File) error {
 }
 
 // RetrieveFile retrieves file "path" on the server and returns it's contents as a buffer.
-func (c *Client) RetrieveFile(path string) (bytes.Buffer, error) {
+func (c *Client) RetrieveFile(path string) (os.File, error) {
 	if c.conn == nil {
-		return bytes.Buffer{}, fmt.Errorf("not connected")
+		return os.File{}, fmt.Errorf("not connected")
 	}
 
-	var data bytes.Buffer
+	var data os.File
 	err := c.conn.Retrieve(path, &data)
 	return data, err
 }

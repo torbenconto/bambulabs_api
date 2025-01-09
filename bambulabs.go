@@ -8,6 +8,7 @@ import (
 	_light "github.com/torbenconto/bambulabs_api/light"
 	_printspeed "github.com/torbenconto/bambulabs_api/printspeed"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
@@ -21,8 +22,8 @@ type Printer struct {
 	accessCode string
 	serial     string
 
-	MQTTClient *mqtt.Client
-	FTPClient  *ftp.Client
+	mqttClient *mqtt.Client
+	ftpClient  *ftp.Client
 }
 
 func NewPrinter(ipAddr net.IP, accessCode, serial string) *Printer {
@@ -31,7 +32,7 @@ func NewPrinter(ipAddr net.IP, accessCode, serial string) *Printer {
 		accessCode: accessCode,
 		serial:     serial,
 
-		MQTTClient: mqtt.NewClient(&mqtt.ClientConfig{
+		mqttClient: mqtt.NewClient(&mqtt.ClientConfig{
 			Host:       ipAddr,
 			Port:       8883,
 			Serial:     serial,
@@ -40,7 +41,7 @@ func NewPrinter(ipAddr net.IP, accessCode, serial string) *Printer {
 
 			Timeout: 5 * time.Second,
 		}),
-		FTPClient: ftp.NewClient(&ftp.ClientConfig{
+		ftpClient: ftp.NewClient(&ftp.ClientConfig{
 			Host:       ipAddr,
 			Port:       990,
 			Username:   "bblp",
@@ -51,14 +52,14 @@ func NewPrinter(ipAddr net.IP, accessCode, serial string) *Printer {
 
 // Connect connects to the underlying clients.
 func (p *Printer) Connect() error {
-	err := p.MQTTClient.Connect()
+	err := p.mqttClient.Connect()
 	if err != nil {
-		return fmt.Errorf("MQTTClient.Connect() error %w", err)
+		return fmt.Errorf("mqttClient.Connect() error %w", err)
 	}
 
-	err = p.FTPClient.Connect()
+	err = p.ftpClient.Connect()
 	if err != nil {
-		return fmt.Errorf("FTPClient.Connect() error %w", err)
+		return fmt.Errorf("ftpClient.Connect() error %w", err)
 	}
 
 	return nil
@@ -66,9 +67,9 @@ func (p *Printer) Connect() error {
 
 // Disconnect disconnects from the underlying clients
 func (p *Printer) Disconnect() error {
-	p.MQTTClient.Disconnect()
-	if err := p.FTPClient.Disconnect(); err != nil {
-		return fmt.Errorf("FTPClient.Disconnect() error %w", err)
+	p.mqttClient.Disconnect()
+	if err := p.ftpClient.Disconnect(); err != nil {
+		return fmt.Errorf("ftpClient.Disconnect() error %w", err)
 	}
 
 	return nil
@@ -77,13 +78,13 @@ func (p *Printer) Disconnect() error {
 // Data returns the current state of the printer as a Data struct.
 // This function is currently working but problems exist with the underlying.
 func (p *Printer) Data() data.Data {
-	return p.MQTTClient.Data()
+	return p.mqttClient.Data()
 }
 
 // GetPrinterState gets the current state of the printer.
 // This function is currently working but problems exist with the underlying.
 func (p *Printer) GetPrinterState() state.GcodeState {
-	return state.GetGcodeState(p.MQTTClient.Data().Print.GcodeState)
+	return state.GetGcodeState(p.mqttClient.Data().Print.GcodeState)
 }
 
 //region Publishing functions (Set)
@@ -114,7 +115,7 @@ func (p *Printer) Light(light _light.Light, set bool) error {
 	command.AddField("loop_times", 1)
 	command.AddField("interval_time", 1000)
 
-	if err := p.MQTTClient.Publish(command); err != nil {
+	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error setting light %s: %w", light, err)
 	}
 
@@ -130,7 +131,7 @@ func (p *Printer) StopPrint() error {
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("stop")
 
-	if err := p.MQTTClient.Publish(command); err != nil {
+	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error stopping print: %w", err)
 	}
 
@@ -146,7 +147,7 @@ func (p *Printer) PausePrint() error {
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("pause")
 
-	if err := p.MQTTClient.Publish(command); err != nil {
+	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error pausing print: %w", err)
 	}
 
@@ -162,7 +163,7 @@ func (p *Printer) ResumePrint() error {
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("resume")
 
-	if err := p.MQTTClient.Publish(command); err != nil {
+	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error resuming print: %w", err)
 	}
 
@@ -180,7 +181,7 @@ func (p *Printer) SendGcode(gcode []string) error {
 
 		command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(g)
 
-		if err := p.MQTTClient.Publish(command); err != nil {
+		if err := p.mqttClient.Publish(command); err != nil {
 			return fmt.Errorf("error sending gcode line %s: %w", g, err)
 		}
 	}
@@ -192,7 +193,7 @@ func (p *Printer) SendGcode(gcode []string) error {
 func (p *Printer) PrintGcodeFile(filePath string) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_file").AddParamField(filePath)
 
-	if err := p.MQTTClient.Publish(command); err != nil {
+	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error printing gcode file %s: %w", filePath, err)
 	}
 
@@ -201,7 +202,7 @@ func (p *Printer) PrintGcodeFile(filePath string) error {
 
 func (p *Printer) Print3mfFile(fileName string, plate int, useAms bool) error {
 	// Probably doesent work. Need to check the correct format of the command
-	//return p.MQTTClient.Publish(`{"print": {"command": "project_file", "param": "Metadata/plate_` + string(plate) + `.gcode", "subtask_name": ` + fileName + `, "use_ams": ` + strconv.FormatBool(useAms) + `"bed_leveling": true, "url": "ftp://"` + fileName + `, "bed_type": "auto", "flow_cali": true, "vibration_cali": true, "layer_inspect: true", "ams_mapping": [0]}}`)
+	//return p.mqttClient.Publish(`{"print": {"command": "project_file", "param": "Metadata/plate_` + string(plate) + `.gcode", "subtask_name": ` + fileName + `, "use_ams": ` + strconv.FormatBool(useAms) + `"bed_leveling": true, "url": "ftp://"` + fileName + `, "bed_type": "auto", "flow_cali": true, "vibration_cali": true, "layer_inspect: true", "ams_mapping": [0]}}`)
 	return errors.ErrUnsupported
 }
 
@@ -209,7 +210,7 @@ func (p *Printer) Print3mfFile(fileName string, plate int, useAms bool) error {
 func (p *Printer) SetBedTemperature(temperature int) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M140 S%d", temperature))
 
-	if err := p.MQTTClient.Publish(command); err != nil {
+	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error setting bed temperature: %w", err)
 	}
 
@@ -220,7 +221,7 @@ func (p *Printer) SetBedTemperature(temperature int) error {
 func (p *Printer) SetBedTemperatureAndWaitUntilReached(temperature int) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M190 S%d", temperature))
 
-	if err := p.MQTTClient.Publish(command); err != nil {
+	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error setting bed temperature and waiting for it to be reached: %w", err)
 	}
 
@@ -237,7 +238,7 @@ func (p *Printer) SetFanSpeed(fan _fan.Fan, speed int) error {
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M106 P%d S%d", fan, speed))
 
-	if err := p.MQTTClient.Publish(command); err != nil {
+	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error setting fan speed: %w", err)
 	}
 
@@ -249,7 +250,7 @@ func (p *Printer) SetFanSpeed(fan _fan.Fan, speed int) error {
 func (p *Printer) SetNozzleTemperature(temperature int) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M104 S%d", temperature))
 
-	if err := p.MQTTClient.Publish(command); err != nil {
+	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error setting nozzle temperature: %w", err)
 	}
 
@@ -261,7 +262,7 @@ func (p *Printer) SetNozzleTemperature(temperature int) error {
 func (p *Printer) SetNozzleTemperatureAndWaitUntilReached(temperature int) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M109 S%d", temperature))
 
-	if err := p.MQTTClient.Publish(command); err != nil {
+	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error setting nozzle temperature and waiting for it to be reached: %w", err)
 	}
 
@@ -285,7 +286,7 @@ func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellat
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("calibration").AddParamField(strconv.Itoa(bitmask))
 
-	if err := p.MQTTClient.Publish(command); err != nil {
+	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error calibrating: %w", err)
 	}
 
@@ -297,7 +298,7 @@ func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellat
 func (p *Printer) SetPrintSpeed(speed _printspeed.PrintSpeed) error {
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("print_speed").AddParamField(speed)
 
-	if err := p.MQTTClient.Publish(command); err != nil {
+	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error setting print speed: %w", err)
 	}
 
@@ -305,5 +306,29 @@ func (p *Printer) SetPrintSpeed(speed _printspeed.PrintSpeed) error {
 }
 
 //TODO: Load/Unload filament, AMS stuff, set filament, set bed height
+
+//endregion
+
+// region FTP functions
+
+// StoreFile calls the underlying ftp client to store a file on the printer.
+func (p *Printer) StoreFile(path string, file os.File) error {
+	return p.ftpClient.StoreFile(path, file)
+}
+
+// ListDirectory calls the underlying ftp client to list the contents of a directory on the printer.
+func (p *Printer) ListDirectory(path string) ([]os.FileInfo, error) {
+	return p.ftpClient.ListDir(path)
+}
+
+// RetrieveFile calls the underlying ftp client to retrieve a file from the printer.
+func (p *Printer) RetrieveFile(path string) (os.File, error) {
+	return p.ftpClient.RetrieveFile(path)
+}
+
+// DeleteFile calls the underlying ftp client to delete a file from the printer.
+func (p *Printer) DeleteFile(path string) error {
+	return p.ftpClient.DeleteFile(path)
+}
 
 //endregion
