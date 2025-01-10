@@ -57,7 +57,7 @@ func NewClient(config *ClientConfig) *Client {
 		config:      config,
 		data:        Message{},
 		lastUpdate:  time.Now(),
-		messageChan: make(chan []byte),
+		messageChan: make(chan []byte, 200),
 		doneChan:    make(chan struct{}),
 	}
 
