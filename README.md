@@ -21,6 +21,7 @@ This repository provides a **Golang** library to interface with **Bambulabs 3D p
 - [Development](#development)
 - [Contributing](#contributing)
 - [Links & Resources](#links--resources)
+- [License](#license)
 
 
 ## Installation
