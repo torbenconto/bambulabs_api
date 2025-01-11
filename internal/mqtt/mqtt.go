@@ -29,7 +29,7 @@ type ClientConfig struct {
 	Serial     string
 	Username   string
 	AccessCode string
-	Timeout    time.Duration // Duration before data is re-fetched
+	Timeout    time.Duration
 }
 
 // Client represents the MQTT client.
@@ -67,7 +67,6 @@ func NewClient(config *ClientConfig) *Client {
 
 	client.client = paho.NewClient(options)
 
-	// Start the message processing worker
 	go client.processMessages()
 
 	return client
@@ -182,7 +181,7 @@ func (c *Client) processPayload(payload []byte) {
 
 	// Perform fine-grained updates
 	if _, ok := reflect.TypeOf(received).FieldByName("Print"); ok {
-		mergeMessages(&c.data, &received) // Update only relevant fields
+		mergeMessages(&c.data, &received)
 		log.Printf("Updated data: %v", c.data)
 	}
 }
