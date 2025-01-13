@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	_fan "github.com/torbenconto/bambulabs_api/fan"
+	"github.com/torbenconto/bambulabs_api/internal/ftp"
+	"github.com/torbenconto/bambulabs_api/internal/mqtt"
 	_light "github.com/torbenconto/bambulabs_api/light"
 	_printspeed "github.com/torbenconto/bambulabs_api/printspeed"
 	"net"
@@ -11,8 +13,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/torbenconto/bambulabs_api/ftp"
-	"github.com/torbenconto/bambulabs_api/mqtt"
 	"github.com/torbenconto/bambulabs_api/state"
 )
 
