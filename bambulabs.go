@@ -1,7 +1,6 @@
 package bambulabs_api
 
 import (
-	"errors"
 	"fmt"
 	_fan "github.com/torbenconto/bambulabs_api/fan"
 	"github.com/torbenconto/bambulabs_api/internal/ftp"
@@ -199,10 +198,36 @@ func (p *Printer) PrintGcodeFile(filePath string) error {
 	return nil
 }
 
-func (p *Printer) Print3mfFile(fileName string, plate int, useAms bool) error {
-	// Probably doesent work. Need to check the correct format of the command
-	//return p.mqttClient.Publish(`{"print": {"command": "project_file", "param": "Metadata/plate_` + string(plate) + `.gcode", "subtask_name": ` + fileName + `, "use_ams": ` + strconv.FormatBool(useAms) + `"bed_leveling": true, "url": "ftp://"` + fileName + `, "bed_type": "auto", "flow_cali": true, "vibration_cali": true, "layer_inspect: true", "ams_mapping": [0]}}`)
-	return errors.ErrUnsupported
+// Print3mfFile prints a ".gcode.3mf" file which resides on the printer. A file url (beginning with ftp:/// or file:///) should be passed in.
+// You can upload a file through the ftp store function, then print it with this function using the url ftp:///[filename]. Make sure that it ends in .gcode or .gcode.3mf.
+// The plate number should almost always be 1.
+// This function is working and has been tested on:
+// - [x] X1 Carbon
+func (p *Printer) Print3mfFile(fileUrl string, plate int, useAms bool, timelapse bool, calibrate bool, inspectLayers bool) error {
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("project_file").AddParamField(fmt.Sprintf("Metadata/plate_%d.gcode", plate))
+
+	command.AddField("project_id", "0")
+	command.AddField("profile_id", "0")
+	command.AddField("task_id", "0")
+	command.AddField("subtask_id", "0")
+	command.AddField("subtask_name", "")
+	command.AddField("file", "")
+	command.AddField("url", fileUrl)
+	command.AddField("md5", "")
+	command.AddField("timelapse", timelapse)
+	command.AddField("bed_type", "auto")
+	command.AddField("bed_levelling", calibrate)
+	command.AddField("flow_cali", calibrate)
+	command.AddField("vibration_cali", calibrate)
+	command.AddField("layer_inspect", inspectLayers)
+	command.AddField("ams_mapping", "")
+	command.AddField("use_ams", useAms)
+
+	if err := p.mqttClient.Publish(command); err != nil {
+		return fmt.Errorf("error printing %s: %w", fileUrl, err)
+	}
+
+	return nil
 }
 
 // SetBedTemperature sets the bed temperature to a specified number in degrees Celcius using a gcode command.
