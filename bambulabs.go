@@ -175,7 +175,7 @@ func (p *Printer) Data() (Data, error) {
 // GetPrinterState gets the current state of the printer.
 // This function is currently working but problems exist with the underlying.
 func (p *Printer) GetPrinterState() state.GcodeState {
-	return state.GetGcodeState(p.mqttClient.Data().Print.GcodeState)
+	return state.GcodeState(p.mqttClient.Data().Print.GcodeState)
 }
 
 //region Publishing functions (Set)
@@ -216,8 +216,10 @@ func (p *Printer) Light(light _light.Light, set bool) error {
 // StopPrint fully stops the current print job.
 // Function works independently but problems exist with the underlying.
 func (p *Printer) StopPrint() error {
-	if p.GetPrinterState() == state.IDLE {
-		return nil
+	s := p.GetPrinterState()
+
+	if s == state.IDLE || s == state.UNKNOWN {
+		return fmt.Errorf("error pausing print: %s", s.String())
 	}
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("stop")
@@ -232,8 +234,10 @@ func (p *Printer) StopPrint() error {
 // PausePrint pauses the current print job.
 // Function works independently but problems exist with the underlying.
 func (p *Printer) PausePrint() error {
-	if p.GetPrinterState() == state.PAUSE {
-		return nil
+	s := p.GetPrinterState()
+
+	if s == state.PAUSE || s == state.UNKNOWN {
+		return fmt.Errorf("error pausing print: %s", s.String())
 	}
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("pause")
@@ -248,8 +252,10 @@ func (p *Printer) PausePrint() error {
 // ResumePrint resumes a paused print job.
 // Function works independently but problems exist with the underlying.
 func (p *Printer) ResumePrint() error {
-	if p.GetPrinterState() == state.RUNNING {
-		return nil
+	s := p.GetPrinterState()
+
+	if s == state.RUNNING || s == state.UNKNOWN {
+		return fmt.Errorf("error pausing print: %s", s.String())
 	}
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("resume")
