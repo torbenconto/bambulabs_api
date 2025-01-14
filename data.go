@@ -1,7 +1,6 @@
 package bambulabs_api
 
 import (
-	"github.com/torbenconto/bambulabs_api/light"
 	"github.com/torbenconto/bambulabs_api/state"
 	"image/color"
 	"reflect"
@@ -48,15 +47,22 @@ type Ams struct {
 type Data struct {
 	// Ams is a list of ams objects
 	Ams []Ams
-
+	// AmsExists is a flag which details if an Ams is connected to the printer.
 	AmsExists bool
-
+	// BedTargetTemperature is the target temperature of the bed in degrees C
 	BedTargetTemperature float64
-	BedTemperature       float64
-	BigFan1Speed         int
-	BigFan2Speed         int
-	ChamberTemperature   float64
-	CoolingFanSpeed      int
+	// BedTemperature is the current temperature of the bed in degrees C
+	BedTemperature float64
+	// BigFan1Speed is the speed of the first big fan (0-255).
+	BigFan1Speed int
+	// BigFan2Speed is the speed of the second big fan (0-255).
+	BigFan2Speed int
+	// CoolingFanSpeed is the speed of the cooling fan in (0-255).
+	CoolingFanSpeed int
+	// HeakBreakFanSpeed is the speed of the heatbreak fan in (0-255).
+	HeatbreakFanSpeed int
+	// ChamberTemperature is the current temperature of the chamber in degrees C
+	ChamberTemperature float64
 
 	// GcodeFile is the name of the current gcode file being printed.
 	GcodeFile string
@@ -65,20 +71,27 @@ type Data struct {
 	// GcodeState is the current state of the printer.
 	GcodeState state.GcodeState
 
-	HeatbreakFanSpeed int
-	Hms               []any
+	// Hms is a list of errors (TODO NOT IMPLEMENTED FULLY)
+	Hms []any
 
-	LightsReport []struct {
-		// TODO: Make better
-		Mode string
-		Node light.Light
-	}
-	PrintPercentDone        int
-	PrintErrorCode          string
-	RemainingPrintTime      int
-	NozzleDiameter          string
+	//LightsReport []struct {
+	//	// TODO: Make better
+	//	Mode string
+	//	Node light.Light
+	//}
+
+	// PrintPercentDone is the current completion percentage of the print.
+	PrintPercentDone int
+	// PrintErrorCode is the error code of the current print (if one exists).
+	PrintErrorCode string
+	// RemainingPrintTime is the estimated time remaining for the print in minutes.
+	RemainingPrintTime int
+	// NozzleDiameter is the diameter of the nozzle in mm.
+	NozzleDiameter string
+	// NozzleTargetTemperature is the target temperature of the nozzle in degrees C.
 	NozzleTargetTemperature float64
-	NozzleTemperature       float64
+	// NozzleTemperature is the current temperature of the nozzle in degrees C.
+	NozzleTemperature float64
 	// Sdcard is a flag which details if an sd card is inserted into the built-in port.
 	Sdcard bool
 
