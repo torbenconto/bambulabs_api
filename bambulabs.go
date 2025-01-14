@@ -24,26 +24,26 @@ type Printer struct {
 	ftpClient  *ftp.Client
 }
 
-func NewPrinter(ipAddr net.IP, accessCode, serial string) *Printer {
+func NewPrinter(config *PrinterConfig) *Printer {
 	return &Printer{
-		ipAddr:     ipAddr,
-		accessCode: accessCode,
-		serial:     serial,
+		ipAddr:     config.IP,
+		accessCode: config.AccessCode,
+		serial:     config.SerialNumber,
 
 		mqttClient: mqtt.NewClient(&mqtt.ClientConfig{
-			Host:       ipAddr,
+			Host:       config.IP,
 			Port:       8883,
-			Serial:     serial,
+			Serial:     config.SerialNumber,
 			Username:   "bblp",
-			AccessCode: accessCode,
+			AccessCode: config.AccessCode,
 
 			Timeout: 5 * time.Second,
 		}),
 		ftpClient: ftp.NewClient(&ftp.ClientConfig{
-			Host:       ipAddr,
+			Host:       config.IP,
 			Port:       990,
 			Username:   "bblp",
-			AccessCode: accessCode,
+			AccessCode: config.AccessCode,
 		}),
 	}
 }
