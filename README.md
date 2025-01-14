@@ -50,7 +50,13 @@ You can find the **IP Address** and **Access Code** in the printer’s network s
 Once you have the necessary details, you can create and connect to the printer with the following code:
 
 ```go
-printer := bambulabs_api.NewPrinter(IP, ACCESS_CODE, SERIAL_NUMBER)
+// Replace the values below with the ones for your printer
+config := &bambulabs_api.PrinterConfig{
+    IP:           net.IPv4(192, 168, 1, 200),
+    AccessCode:   ACCESS_CODE,
+    SerialNumber: SERIAL_NUMBER,
+}
+printer := bambulabs_api.NewPrinter(config)
 err := printer.Connect()
 if err != nil {
     panic(err)
@@ -69,19 +75,19 @@ import (
 	"fmt"
 	"github.com/torbenconto/bambulabs_api"
 	"github.com/torbenconto/bambulabs_api/light"
+	"time"
 	"net"
 )
 
 func main() {
-	// Printer local IP
-	printerIp := net.IPv4(192, 168, 1, 200)
-	// Printer serial number
-	printerSerialNumber := "AC1029391BH109"
-	// Printer access code
-	printerAccessCode := "00293KD0"
+	config := &bambulabs_api.PrinterConfig{
+		IP:           net.IPv4(192, 168, 1, 200),
+		AccessCode:   "00293KD0",
+		SerialNumber: "AC1029391BH109",
+	}
 
 	// Create printer object
-	printer := bambulabs_api.NewPrinter(printerIp, printerAccessCode, printerSerialNumber)
+	printer := bambulabs_api.NewPrinter(config)
 
 	// Connect to printer via MQTT
 	err := printer.Connect()
@@ -94,10 +100,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	
+	for {
+		time.Sleep(1 * time.Second)
 
-	// Retrieve printer data
-	data := printer.Data()
-	fmt.Println(data)
+        data, err := printer.Data()
+		if err != nil {
+			panic(err)
+        }
+		if !data.IsEmpty() {
+			fmt.Println(data)
+        }
+    }
 }
 ```
 
