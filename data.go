@@ -53,13 +53,13 @@ type Data struct {
 	BedTargetTemperature float64
 	// BedTemperature is the current temperature of the bed in degrees C
 	BedTemperature float64
-	// BigFan1Speed is the speed of the first big fan (0-255).
-	BigFan1Speed int
-	// BigFan2Speed is the speed of the second big fan (0-255).
-	BigFan2Speed int
-	// CoolingFanSpeed is the speed of the cooling fan in (0-255).
-	CoolingFanSpeed int
-	// HeakBreakFanSpeed is the speed of the heatbreak fan in (0-255).
+	// AuxillaryFanSpeed is the speed of the first big fan (0-15).
+	AuxiliaryFanSpeed int
+	// ChamberFanSpeed is the speed of the second big fan (0-15).
+	ChamberFanSpeed int
+	// PartFanSpeed is the speed of the cooling fan in (0-15).
+	PartFanSpeed int
+	// HeakBreakFanSpeed is the speed of the heatbreak fan in (0-15).
 	HeatbreakFanSpeed int
 	// ChamberTemperature is the current temperature of the chamber in degrees C
 	ChamberTemperature float64
