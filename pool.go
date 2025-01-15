@@ -52,7 +52,7 @@ func (p *PrinterPool) ConnectAll() error {
 }
 func (p *PrinterPool) DisconnectAll() error {
 	var wg sync.WaitGroup
-	errCh := make(chan error, 100)
+	errChan := make(chan error, 100)
 
 	p.printers.Range(func(_, value interface{}) bool {
 		printer, ok := value.(*Printer)
@@ -64,17 +64,17 @@ func (p *PrinterPool) DisconnectAll() error {
 		go func(p *Printer) {
 			defer wg.Done()
 			if err := p.Disconnect(); err != nil {
-				errCh <- fmt.Errorf("printer %s disconnect error: %w", p.serial, err)
+				errChan <- fmt.Errorf("printer %s disconnect error: %w", p.serial, err)
 			}
 		}(printer)
 		return true
 	})
 
 	wg.Wait()
-	close(errCh)
+	close(errChan)
 
 	var result error
-	for err := range errCh {
+	for err := range errChan {
 		if result == nil {
 			result = err
 		} else {
