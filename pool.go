@@ -170,7 +170,7 @@ func (p *PrinterPool) DataAll() (map[string]*Data, error) {
 				return
 			}
 
-			result.Store(p.serial, data)
+			result.Store(p.serial, &data)
 		}(printer)
 		return true
 	})
