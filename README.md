@@ -50,13 +50,83 @@ You can find the **IP Address** and **Access Code** in the printer’s network s
 Once you have the necessary details, you can create and connect to the printer with the following code:
 
 ```go
-printer := bambulabs_api.NewPrinter(IP, ACCESS_CODE, SERIAL_NUMBER)
+// Replace the values below with the ones for your printer
+config := &bambulabs_api.PrinterConfig{
+    IP:           net.IPv4(192, 168, 1, 200),
+    AccessCode:   ACCESS_CODE,
+    SerialNumber: SERIAL_NUMBER,
+}
+printer := bambulabs_api.NewPrinter(config)
 err := printer.Connect()
 if err != nil {
     panic(err)
 }
 ```
 
+## Managing Multiple Printers
+The PrinterPool is a concurrent, thread-safe structure designed to manage multiple printers in a pool. It allows you to interact with the printers by serial number, retrieve their status or data, and perform operations on them, all while handling multiple printers concurrently.
+To begin using the PrinterPool, first create an instance of it:
+```go
+pool := bambulabs_api.NewPrinterPool()
+```
+Next, add printers to the pool using the AddPrinter method and passing in a config:
+```go
+configs := []*PrinterConfig{
+    {IP: net.IPv4(192, 168, 2, 5), SerialNumber: "M123ALE29D", AccessCode: "ODJ2j3"},
+    {IP: net.IPv4(192, 168, 2, 6), SerialNumber: "M123ALE29E", AccessCode: "LDAdj3"},
+}
+
+for _, config := range configs {
+    pool.AddPrinter(config)
+}
+```
+
+Next, connect to the printers using the built-in ConnectAll method:
+```go
+err := pool.ConnectAll()
+if err != nil {
+    panic(err)
+}
+```
+
+Once connected, you can interact with the printers in the pool using the various methods provided by the PrinterPool struct. For example, you can toggle the light on all printers in the pool:
+```go
+err := pool.ExecuteAll(func(printer *Printer) error {
+    return printer.Light(light.ChamberLight, true)
+})
+
+if err != nil {
+    panic(err)
+}
+```
+
+You can also retrieve the data of all printers in the pool:
+```go
+data, err := pool.DataAll()
+if err != nil {
+    panic(err)
+}
+
+for _, printerData := range data {
+    fmt.Println(printerData)
+}
+```
+
+For operations on one printer in a pool, you can retrieve a printer by serial number using the At method:
+```go
+printer, err := pool.At("M123ALE29D")
+if err != nil {
+    panic(err)
+}
+```
+
+Finally, you can disconnect from all printers in the pool using the DisconnectAll method:
+```go
+err := pool.DisconnectAll()
+if err != nil {
+    panic(err)
+}
+```
 
 ## Basic Examples
 
@@ -69,19 +139,19 @@ import (
 	"fmt"
 	"github.com/torbenconto/bambulabs_api"
 	"github.com/torbenconto/bambulabs_api/light"
+	"time"
 	"net"
 )
 
 func main() {
-	// Printer local IP
-	printerIp := net.IPv4(192, 168, 1, 200)
-	// Printer serial number
-	printerSerialNumber := "AC1029391BH109"
-	// Printer access code
-	printerAccessCode := "00293KD0"
+	config := &bambulabs_api.PrinterConfig{
+		IP:           net.IPv4(192, 168, 1, 200),
+		AccessCode:   "00293KD0",
+		SerialNumber: "AC1029391BH109",
+	}
 
 	// Create printer object
-	printer := bambulabs_api.NewPrinter(printerIp, printerAccessCode, printerSerialNumber)
+	printer := bambulabs_api.NewPrinter(config)
 
 	// Connect to printer via MQTT
 	err := printer.Connect()
@@ -94,16 +164,77 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	
+	for {
+		time.Sleep(1 * time.Second)
 
-	// Retrieve printer data
-	data := printer.Data()
-	fmt.Println(data)
+        data, err := printer.Data()
+		if err != nil {
+			panic(err)
+        }
+		if !data.IsEmpty() {
+			fmt.Println(data)
+        }
+    }
+}
+```
+
+This example establishes a printer pool with two printers, connects to them, toggles the light on both printers, and retrieves their data:
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/torbenconto/bambulabs_api"
+    "github.com/torbenconto/bambulabs_api/light"
+    "net"
+    "time"
+)
+
+func main() {
+    pool := bambulabs_api.NewPrinterPool()
+
+    configs := []*bambulabs_api.PrinterConfig{
+        {IP: net.IPv4(192, 168, 2, 5), SerialNumber: "M123ALE29D", AccessCode: "ODJ2j3"},
+        {IP: net.IPv4(192, 168, 2, 6), SerialNumber: "M123ALE29E", AccessCode: "LDAdj3"},
+    }
+
+    for _, config := range configs {
+        pool.AddPrinter(config)
+    }
+
+    err := pool.ConnectAll()
+    if err != nil {
+        panic(err)
+    }
+
+    err = pool.ExecuteAll(func(printer *bambulabs_api.Printer) error {
+        return printer.Light(light.ChamberLight, true)
+    })
+
+    if err != nil {
+        panic(err)
+    }
+
+    for {
+        time.Sleep(1 * time.Second)
+
+        data, err := pool.DataAll()
+        if err != nil {
+            panic(err)
+        }
+
+        for _, printerData := range data {
+            fmt.Println(printerData)
+        }
+    }
 }
 ```
 
 ## Development
 
-### Current Status: PARTLY TESTED, IN PROGRESS
+### Current Status: IN RELEASING PROCESS
 
 This library is in active development. While many features have been implemented, certain functions are not fully tested across all supported devices. Contributions are welcome to improve functionality and expand coverage.
 

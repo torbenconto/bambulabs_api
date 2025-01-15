@@ -33,13 +33,3 @@ func (gs GcodeState) String() string {
 		return "Invalid Gcode state."
 	}
 }
-
-// GetGcodeState returns the description based on the provided state value.
-func GetGcodeState(value string) GcodeState {
-	switch GcodeState(value) {
-	case IDLE, PREPARE, RUNNING, PAUSE, FINISH, FAILED, UNKNOWN:
-		return GcodeState(value)
-	default:
-		return UNKNOWN
-	}
-}

@@ -7,6 +7,7 @@ import (
 	"github.com/torbenconto/bambulabs_api/internal/mqtt"
 	_light "github.com/torbenconto/bambulabs_api/light"
 	_printspeed "github.com/torbenconto/bambulabs_api/printspeed"
+	"image/color"
 	"net"
 	"os"
 	"strconv"
@@ -24,26 +25,26 @@ type Printer struct {
 	ftpClient  *ftp.Client
 }
 
-func NewPrinter(ipAddr net.IP, accessCode, serial string) *Printer {
+func NewPrinter(config *PrinterConfig) *Printer {
 	return &Printer{
-		ipAddr:     ipAddr,
-		accessCode: accessCode,
-		serial:     serial,
+		ipAddr:     config.IP,
+		accessCode: config.AccessCode,
+		serial:     config.SerialNumber,
 
 		mqttClient: mqtt.NewClient(&mqtt.ClientConfig{
-			Host:       ipAddr,
+			Host:       config.IP,
 			Port:       8883,
-			Serial:     serial,
+			Serial:     config.SerialNumber,
 			Username:   "bblp",
-			AccessCode: accessCode,
+			AccessCode: config.AccessCode,
 
 			Timeout: 5 * time.Second,
 		}),
 		ftpClient: ftp.NewClient(&ftp.ClientConfig{
-			Host:       ipAddr,
+			Host:       config.IP,
 			Port:       990,
 			Username:   "bblp",
-			AccessCode: accessCode,
+			AccessCode: config.AccessCode,
 		}),
 	}
 }
@@ -73,16 +74,108 @@ func (p *Printer) Disconnect() error {
 	return nil
 }
 
+func unsafeParseFloat(s string) float64 {
+	f, _ := strconv.ParseFloat(s, 64)
+	return f
+}
+
+func unsafeParseInt(s string) int {
+	i, _ := strconv.Atoi(s)
+	return i
+}
+
 // Data returns the current state of the printer as a Data struct.
 // This function is currently working but problems exist with the underlying.
-func (p *Printer) Data() mqtt.Message {
-	return p.mqttClient.Data()
+// TODO: HMS
+func (p *Printer) Data() (Data, error) {
+	// Retrieve data from the MQTT client
+	data := p.mqttClient.Data()
+
+	// Initialize the final Data structure with basic fields
+	final := Data{
+		Ams:                     make([]Ams, 0),
+		AmsExists:               data.Print.Ams.AmsExistBits == "1",
+		BedTargetTemperature:    data.Print.BedTargetTemper,
+		BedTemperature:          data.Print.BedTemper,
+		BigFan1Speed:            unsafeParseInt(data.Print.BigFan1Speed),
+		BigFan2Speed:            unsafeParseInt(data.Print.BigFan2Speed),
+		CoolingFanSpeed:         unsafeParseInt(data.Print.CoolingFanSpeed),
+		HeatbreakFanSpeed:       unsafeParseInt(data.Print.HeatbreakFanSpeed),
+		ChamberTemperature:      data.Print.ChamberTemper,
+		GcodeFile:               data.Print.GcodeFile,
+		GcodeFilePreparePercent: unsafeParseInt(data.Print.GcodeFilePreparePercent),
+		GcodeState:              state.GcodeState(data.Print.GcodeState),
+		PrintPercentDone:        data.Print.McPercent,
+		PrintErrorCode:          data.Print.McPrintErrorCode,
+		RemainingPrintTime:      data.Print.McRemainingTime,
+		NozzleDiameter:          data.Print.NozzleDiameter,
+		NozzleTargetTemperature: data.Print.NozzleTargetTemper,
+		NozzleTemperature:       data.Print.NozzleTemper,
+		Sdcard:                  data.Print.Sdcard,
+		WifiSignal:              data.Print.WifiSignal,
+	}
+
+	// Process AMS data
+	for _, ams := range data.Print.Ams.Ams {
+		trays := make([]Tray, 0)
+
+		// Process trays for each AMS
+		for _, tray := range ams.Tray {
+			colors := make([]color.RGBA, 0)
+
+			// Process colors for each tray
+			for _, col := range tray.Cols {
+				if col == "" {
+					colors = append(colors, color.RGBA{})
+				}
+				c, err := parseHexColorFast(col)
+				if err != nil {
+					return Data{}, fmt.Errorf("parseHexColorFast() error %w", err)
+				}
+				colors = append(colors, c)
+			}
+
+			var trayColor = color.RGBA{}
+			if tray.TrayColor != "" {
+
+				var err error
+				trayColor, err = parseHexColorFast(tray.TrayColor)
+				if err != nil {
+					return Data{}, fmt.Errorf("parseHexColorFast() error %w", err)
+				}
+			}
+
+			trays = append(trays, Tray{
+				ID:                unsafeParseInt(tray.ID),
+				BedTemperature:    unsafeParseFloat(tray.BedTemp),
+				Colors:            colors,
+				DryingTemperature: unsafeParseFloat(tray.DryingTemp),
+				DryingTime:        unsafeParseInt(tray.DryingTime),
+				NozzleTempMax:     unsafeParseFloat(tray.NozzleTempMax),
+				NozzleTempMin:     unsafeParseFloat(tray.NozzleTempMin),
+				TrayColor:         trayColor,
+				TrayDiameter:      unsafeParseFloat(tray.TrayDiameter),
+				TraySubBrands:     tray.TraySubBrands,
+				TrayType:          tray.TrayType,
+				TrayWeight:        unsafeParseInt(tray.TrayWeight),
+			})
+		}
+
+		final.Ams = append(final.Ams, Ams{
+			Humidity:    unsafeParseInt(ams.Humidity),
+			ID:          unsafeParseInt(ams.ID),
+			Temperature: unsafeParseFloat(ams.Temp),
+			Trays:       trays,
+		})
+	}
+
+	return final, nil
 }
 
 // GetPrinterState gets the current state of the printer.
 // This function is currently working but problems exist with the underlying.
 func (p *Printer) GetPrinterState() state.GcodeState {
-	return state.GetGcodeState(p.mqttClient.Data().Print.GcodeState)
+	return state.GcodeState(p.mqttClient.Data().Print.GcodeState)
 }
 
 //region Publishing functions (Set)
@@ -123,8 +216,10 @@ func (p *Printer) Light(light _light.Light, set bool) error {
 // StopPrint fully stops the current print job.
 // Function works independently but problems exist with the underlying.
 func (p *Printer) StopPrint() error {
-	if p.GetPrinterState() == state.IDLE {
-		return nil
+	s := p.GetPrinterState()
+
+	if s == state.IDLE || s == state.UNKNOWN {
+		return fmt.Errorf("error pausing print: %s", s.String())
 	}
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("stop")
@@ -139,8 +234,10 @@ func (p *Printer) StopPrint() error {
 // PausePrint pauses the current print job.
 // Function works independently but problems exist with the underlying.
 func (p *Printer) PausePrint() error {
-	if p.GetPrinterState() == state.PAUSE {
-		return nil
+	s := p.GetPrinterState()
+
+	if s == state.PAUSE || s == state.UNKNOWN {
+		return fmt.Errorf("error pausing print: %s", s.String())
 	}
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("pause")
@@ -155,8 +252,10 @@ func (p *Printer) PausePrint() error {
 // ResumePrint resumes a paused print job.
 // Function works independently but problems exist with the underlying.
 func (p *Printer) ResumePrint() error {
-	if p.GetPrinterState() == state.RUNNING {
-		return nil
+	s := p.GetPrinterState()
+
+	if s == state.RUNNING || s == state.UNKNOWN {
+		return fmt.Errorf("error pausing print: %s", s.String())
 	}
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("resume")
