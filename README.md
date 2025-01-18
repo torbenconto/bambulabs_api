@@ -7,6 +7,7 @@
 
 <h1>Bambulabs API Golang Library</h1>
 </div>
+
 # ARCHIVED
 This repository is currently archived because bambu has made the decision to lock all their printers to where they may only be controlled by proprietary software. This library will not work with the new firmware if released in the current form.
 🖕🇨🇳
