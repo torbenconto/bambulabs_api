@@ -7,5 +7,6 @@ const (
 	Europe
 	NorthAmerica
 	AsiaPacific
+	SouthAmerica
 	Other
 )

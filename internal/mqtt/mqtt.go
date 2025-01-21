@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net"
 	"reflect"
 	"sync"
 	"time"
@@ -24,7 +23,7 @@ const (
 
 // ClientConfig holds the configuration details for the MQTT client.
 type ClientConfig struct {
-	Host       net.IP
+	Host       string
 	Port       int
 	Serial     string
 	Username   string
@@ -46,7 +45,7 @@ type Client struct {
 // NewClient creates and initializes a new MQTT client.
 func NewClient(config *ClientConfig) *Client {
 	options := paho.NewClientOptions()
-	options.AddBroker(fmt.Sprintf("mqtts://%s:%d", config.Host.String(), config.Port))
+	options.AddBroker(fmt.Sprintf("mqtts://%s:%d", config.Host, config.Port))
 	options.SetClientID(clientID)
 	options.SetUsername(config.Username)
 	options.SetPassword(config.AccessCode)

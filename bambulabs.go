@@ -8,7 +8,6 @@ import (
 	_light "github.com/torbenconto/bambulabs_api/light"
 	_printspeed "github.com/torbenconto/bambulabs_api/printspeed"
 	"image/color"
-	"net"
 	"os"
 	"strconv"
 	"time"
@@ -17,7 +16,7 @@ import (
 )
 
 type Printer struct {
-	ipAddr     net.IP
+	ipAddr     string
 	accessCode string
 	serial     string
 
@@ -26,24 +25,28 @@ type Printer struct {
 }
 
 func NewPrinter(config *PrinterConfig) *Printer {
+	username := config.MqttUser
+	if username == "" {
+		username = "bblp"
+	}
+
 	return &Printer{
-		ipAddr:     config.IP,
+		ipAddr:     config.Host,
 		accessCode: config.AccessCode,
 		serial:     config.SerialNumber,
 
 		mqttClient: mqtt.NewClient(&mqtt.ClientConfig{
-			Host:       config.IP,
+			Host:       config.Host,
 			Port:       8883,
 			Serial:     config.SerialNumber,
-			Username:   "bblp",
+			Username:   username,
 			AccessCode: config.AccessCode,
-
-			Timeout: 5 * time.Second,
+			Timeout:    5 * time.Second,
 		}),
 		ftpClient: ftp.NewClient(&ftp.ClientConfig{
-			Host:       config.IP,
+			Host:       config.Host,
 			Port:       990,
-			Username:   "bblp",
+			Username:   username,
 			AccessCode: config.AccessCode,
 		}),
 	}
