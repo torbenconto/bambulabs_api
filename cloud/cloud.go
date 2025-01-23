@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	baseUrlCN = "https://api.bambulab.cn"
-	baseUrlUS = "https://api.bambulab.com"
+	baseUrlCN = "https://api.bambulab.cn/v1"
+	baseUrlUS = "https://api.bambulab.com/v1"
 )
 
 const (
