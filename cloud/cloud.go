@@ -15,8 +15,8 @@ const (
 )
 
 const (
-	mqttHostCN = "mqtt.bambulab.cn"
-	mqttHostUS = "mqtt.bambulab.com"
+	mqttHostCN = "cn.mqtt.bambulab.cn"
+	mqttHostUS = "us.mqtt.bambulab.com"
 )
 
 type baseResponse struct {
