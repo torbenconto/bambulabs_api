@@ -40,6 +40,12 @@ func NewClient(config *Config) *Client {
 	}
 }
 
+func NewClientWithToken(config *Config, token string) *Client {
+	client := NewClient(config)
+	client.token = token
+	return client
+}
+
 func (c *Client) getBaseUrl() string {
 	if c.region == China {
 		return baseUrlCN
@@ -66,6 +72,10 @@ type loginResponse struct {
 }
 
 func (c *Client) Login() (string, error) {
+	if c.token != "" {
+		return c.token, nil
+	}
+
 	url := c.getBaseUrl() + "/user-service/user/login"
 
 	body, err := json.Marshal(loginRequest{
@@ -111,6 +121,10 @@ func (c *Client) Login() (string, error) {
 }
 
 func (c *Client) SubmitVerificationCode() (string, error) {
+	if c.token != "" {
+		return c.token, nil
+	}
+
 	url := c.getBaseUrl() + "/user-service/user/login"
 
 	req, err := http.NewRequest("POST", url, nil)
