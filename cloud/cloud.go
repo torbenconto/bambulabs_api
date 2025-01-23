@@ -7,6 +7,7 @@ import (
 	"github.com/torbenconto/bambulabs_api"
 	"io"
 	"net/http"
+	"strconv"
 )
 
 const (
@@ -168,42 +169,42 @@ func (c *Client) SubmitVerificationCode(code string) (string, error) {
 }
 
 type userInfoResponse struct {
-	UserID string `json:"uid"`
+	UserID int `json:"uid"`
 }
 
-func (c *Client) GetUserID() (string, error) {
+func (c *Client) GetUserID() (int, error) {
 	if c.token == "" {
-		return "", fmt.Errorf("no token")
+		return -1, fmt.Errorf("no token")
 	}
 
 	url := c.getBaseUrl() + "/design-user-service/my/preference"
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", err
+		return -1, err
 	}
 
 	req.Header.Set("Authorization", "Bearer "+c.token)
 
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return -1, err
 	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("get user id failed: %s", response.Status)
+		return -1, fmt.Errorf("get user id failed: %s", response.Status)
 	}
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		return "", err
+		return -1, err
 	}
 
 	var userInfoResp userInfoResponse
 	if err := json.Unmarshal(body, &userInfoResp); err != nil {
-		return "", err
+		return -1, err
 	}
 
 	return userInfoResp.UserID, nil
@@ -270,7 +271,7 @@ func (c *Client) GetPrintersAsPool() (*bambulabs_api.PrinterPool, error) {
 			Host:         c.getMqttHost(),
 			AccessCode:   c.token,
 			SerialNumber: device.DevID,
-			MqttUser:     uid,
+			MqttUser:     "u_" + strconv.Itoa(uid),
 			Mode:         bambulabs_api.CloudMode,
 		})
 	}
