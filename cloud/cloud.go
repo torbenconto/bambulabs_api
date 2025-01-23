@@ -222,6 +222,8 @@ type getPrintersResponse struct {
 	} `json:"devices"`
 }
 
+// GetPrintersAsPool returns a printer pool with all printers that are bound to the user.
+// Please note that the ftp clients do not function over the cloud.
 func (c *Client) GetPrintersAsPool() (*bambulabs_api.PrinterPool, error) {
 	if c.token == "" {
 		return &bambulabs_api.PrinterPool{}, fmt.Errorf("no token")
@@ -269,6 +271,7 @@ func (c *Client) GetPrintersAsPool() (*bambulabs_api.PrinterPool, error) {
 			AccessCode:   c.token,
 			SerialNumber: device.DevID,
 			MqttUser:     uid,
+			Mode:         bambulabs_api.CloudMode,
 		})
 	}
 

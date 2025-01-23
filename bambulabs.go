@@ -19,6 +19,7 @@ type Printer struct {
 	ipAddr     string
 	accessCode string
 	serial     string
+	mode       ConnectionMode
 
 	mqttClient *mqtt.Client
 	ftpClient  *ftp.Client
@@ -34,6 +35,7 @@ func NewPrinter(config *PrinterConfig) *Printer {
 		ipAddr:     config.Host,
 		accessCode: config.AccessCode,
 		serial:     config.SerialNumber,
+		mode:       config.Mode,
 
 		mqttClient: mqtt.NewClient(&mqtt.ClientConfig{
 			Host:       config.Host,
@@ -59,9 +61,11 @@ func (p *Printer) Connect() error {
 		return fmt.Errorf("mqttClient.Connect() error %w", err)
 	}
 
-	err = p.ConnectFtp()
-	if err != nil {
-		return fmt.Errorf("ftpClient.Connect() error %w", err)
+	if p.mode == LocalMode {
+		err = p.ConnectFtp()
+		if err != nil {
+			return fmt.Errorf("ftpClient.Connect() error %w", err)
+		}
 	}
 
 	return nil

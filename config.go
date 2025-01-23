@@ -5,4 +5,5 @@ type PrinterConfig struct {
 	AccessCode   string
 	SerialNumber string
 	MqttUser     string
+	Mode         ConnectionMode
 }
