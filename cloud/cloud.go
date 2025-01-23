@@ -63,7 +63,7 @@ func (c *Client) getMqttHost() string {
 }
 
 type loginRequest struct {
-	Email    string `json:"email"`
+	Email    string `json:"account"`
 	Password string `json:"password"`
 }
 type loginResponse struct {
@@ -120,14 +120,24 @@ func (c *Client) Login() (string, error) {
 	return c.token, nil
 }
 
-func (c *Client) SubmitVerificationCode() (string, error) {
+type submitVerificationCodeRequest struct {
+	Email string `json:"account"`
+	Code  string `json:"code"`
+}
+
+func (c *Client) SubmitVerificationCode(code string) (string, error) {
 	if c.token != "" {
 		return c.token, nil
 	}
 
 	url := c.getBaseUrl() + "/user-service/user/login"
 
-	req, err := http.NewRequest("POST", url, nil)
+	body, err := json.Marshal(submitVerificationCodeRequest{
+		Email: c.email,
+		Code:  code,
+	})
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		return "", err
 	}
@@ -145,7 +155,7 @@ func (c *Client) SubmitVerificationCode() (string, error) {
 		return "", fmt.Errorf("login failed: %s", response.Status)
 	}
 
-	body, err := io.ReadAll(response.Body)
+	body, err = io.ReadAll(response.Body)
 
 	var loginResp loginResponse
 	if err := json.Unmarshal(body, &loginResp); err != nil {
