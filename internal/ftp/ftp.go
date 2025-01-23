@@ -4,12 +4,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/secsy/goftp"
-	"net"
 	"os"
 )
 
 type ClientConfig struct {
-	Host       net.IP
+	Host       string
 	Port       int
 	Username   string
 	AccessCode string
@@ -37,13 +36,13 @@ func (c *Client) Connect() error {
 		TLSConfig: &tls.Config{
 			InsecureSkipVerify: true,
 			ClientSessionCache: tls.NewLRUClientSessionCache(0),
-			ServerName:         c.config.Host.String(),
+			ServerName:         c.config.Host,
 		},
 
 		TLSMode: goftp.TLSImplicit,
 	}
 
-	address := fmt.Sprintf("%s:%d", c.config.Host.String(), c.config.Port)
+	address := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
 	conn, err := goftp.DialConfig(config, address)
 	if err != nil {
 		return err

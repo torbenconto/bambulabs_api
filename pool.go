@@ -50,6 +50,81 @@ func (p *PrinterPool) ConnectAll() error {
 
 	return result
 }
+
+func (p *PrinterPool) ConnectMqttAll() error {
+	var wg sync.WaitGroup
+	errChan := make(chan error, 100)
+
+	p.printers.Range(func(_, value interface{}) bool {
+		printer, ok := value.(*Printer)
+		if !ok {
+			return false
+		}
+
+		wg.Add(1)
+		go func(p *Printer) {
+			defer wg.Done()
+			err := p.mqttClient.Connect()
+			if err != nil {
+				errChan <- fmt.Errorf("failed to connect to MQTT client of printer %s: %w", p.serial, err)
+			}
+		}(printer)
+
+		return true
+	})
+
+	wg.Wait()
+	close(errChan)
+
+	var result error
+	for err := range errChan {
+		if result == nil {
+			result = err
+		} else {
+			result = fmt.Errorf("%v; %w", result, err)
+		}
+	}
+
+	return result
+}
+
+func (p *PrinterPool) ConnectFtpAll() error {
+	var wg sync.WaitGroup
+	errChan := make(chan error, 100)
+
+	p.printers.Range(func(_, value interface{}) bool {
+		printer, ok := value.(*Printer)
+		if !ok {
+			return false
+		}
+
+		wg.Add(1)
+		go func(p *Printer) {
+			defer wg.Done()
+			err := p.ftpClient.Connect()
+			if err != nil {
+				errChan <- fmt.Errorf("failed to connect to FTP client of printer %s: %w", p.serial, err)
+			}
+		}(printer)
+
+		return true
+	})
+
+	wg.Wait()
+	close(errChan)
+
+	var result error
+	for err := range errChan {
+		if result == nil {
+			result = err
+		} else {
+			result = fmt.Errorf("%v; %w", result, err)
+		}
+	}
+
+	return result
+}
+
 func (p *PrinterPool) DisconnectAll() error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, 100)

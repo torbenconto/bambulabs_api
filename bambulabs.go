@@ -8,7 +8,6 @@ import (
 	_light "github.com/torbenconto/bambulabs_api/light"
 	_printspeed "github.com/torbenconto/bambulabs_api/printspeed"
 	"image/color"
-	"net"
 	"os"
 	"strconv"
 	"time"
@@ -17,33 +16,39 @@ import (
 )
 
 type Printer struct {
-	ipAddr     net.IP
+	ipAddr     string
 	accessCode string
 	serial     string
+	mode       ConnectionMode
 
 	mqttClient *mqtt.Client
 	ftpClient  *ftp.Client
 }
 
 func NewPrinter(config *PrinterConfig) *Printer {
+	username := config.MqttUser
+	if username == "" {
+		username = "bblp"
+	}
+
 	return &Printer{
-		ipAddr:     config.IP,
+		ipAddr:     config.Host,
 		accessCode: config.AccessCode,
 		serial:     config.SerialNumber,
+		mode:       config.Mode,
 
 		mqttClient: mqtt.NewClient(&mqtt.ClientConfig{
-			Host:       config.IP,
+			Host:       config.Host,
 			Port:       8883,
 			Serial:     config.SerialNumber,
-			Username:   "bblp",
+			Username:   username,
 			AccessCode: config.AccessCode,
-
-			Timeout: 5 * time.Second,
+			Timeout:    5 * time.Second,
 		}),
 		ftpClient: ftp.NewClient(&ftp.ClientConfig{
-			Host:       config.IP,
+			Host:       config.Host,
 			Port:       990,
-			Username:   "bblp",
+			Username:   username,
 			AccessCode: config.AccessCode,
 		}),
 	}
@@ -51,17 +56,29 @@ func NewPrinter(config *PrinterConfig) *Printer {
 
 // Connect connects to the underlying clients.
 func (p *Printer) Connect() error {
-	err := p.mqttClient.Connect()
+	err := p.ConnectMqtt()
 	if err != nil {
 		return fmt.Errorf("mqttClient.Connect() error %w", err)
 	}
 
-	err = p.ftpClient.Connect()
-	if err != nil {
-		return fmt.Errorf("ftpClient.Connect() error %w", err)
+	if p.mode == LocalMode {
+		err = p.ConnectFtp()
+		if err != nil {
+			return fmt.Errorf("ftpClient.Connect() error %w", err)
+		}
 	}
 
 	return nil
+}
+
+// ConnectMqtt only connects to the MQTT client.
+func (p *Printer) ConnectMqtt() error {
+	return p.mqttClient.Connect()
+}
+
+// ConnectFtp only connects to the FTP client.
+func (p *Printer) ConnectFtp() error {
+	return p.ftpClient.Connect()
 }
 
 // Disconnect disconnects from the underlying clients

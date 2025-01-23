@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net"
 	"reflect"
 	"sync"
 	"time"
@@ -19,12 +18,12 @@ const (
 	topicTemplate     = "device/%s/report"
 	commandTopic      = "device/%s/request"
 	qos               = 0
-	connectionTimeout = 250 * time.Millisecond
+	connectionTimeout = 10 * time.Second
 )
 
 // ClientConfig holds the configuration details for the MQTT client.
 type ClientConfig struct {
-	Host       net.IP
+	Host       string
 	Port       int
 	Serial     string
 	Username   string
@@ -46,7 +45,7 @@ type Client struct {
 // NewClient creates and initializes a new MQTT client.
 func NewClient(config *ClientConfig) *Client {
 	options := paho.NewClientOptions()
-	options.AddBroker(fmt.Sprintf("mqtts://%s:%d", config.Host.String(), config.Port))
+	options.AddBroker(fmt.Sprintf("mqtts://%s:%d", config.Host, config.Port))
 	options.SetClientID(clientID)
 	options.SetUsername(config.Username)
 	options.SetPassword(config.AccessCode)
@@ -68,6 +67,7 @@ func NewClient(config *ClientConfig) *Client {
 	client.client = paho.NewClient(options)
 
 	go client.processMessages()
+	go client.periodicUpdate()
 
 	return client
 }
@@ -180,10 +180,8 @@ func (c *Client) processPayload(payload []byte) {
 	defer c.mutex.Unlock()
 
 	// Perform fine-grained updates
-	if _, ok := reflect.TypeOf(received).FieldByName("Print"); ok {
-		mergeMessages(&c.data, &received)
-		log.Printf("Updated data: %v", c.data)
-	}
+	mergeMessages(&c.data, &received)
+	log.Printf("Updated data: %v", c.data)
 }
 
 // mergeMessages updates fields in the existing message with those from the new message.
@@ -198,8 +196,29 @@ func mergeMessages(existing, new *Message) {
 
 		// Only update if the new field is valid and has a non-zero value
 		if newField.IsValid() && !isZeroValue(newField) {
-			existingField.Set(newField)
-			log.Printf("Updated field '%s': %v", field.Name, newField.Interface())
+			if existingField.Kind() == reflect.Struct {
+				// Recursively merge nested structs
+				mergeMessages(existingField.Addr().Interface().(*Message), newField.Addr().Interface().(*Message))
+			} else {
+				existingField.Set(newField)
+				log.Printf("Updated field '%s': %v", field.Name, newField.Interface())
+			}
+		}
+	}
+}
+
+func (c *Client) periodicUpdate() {
+	ticker := time.NewTicker(c.config.Timeout)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := c.update(); err != nil {
+				log.Printf("Failed to update data: %v", err)
+			}
+		case <-c.doneChan:
+			return
 		}
 	}
 }
