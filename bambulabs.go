@@ -54,17 +54,27 @@ func NewPrinter(config *PrinterConfig) *Printer {
 
 // Connect connects to the underlying clients.
 func (p *Printer) Connect() error {
-	err := p.mqttClient.Connect()
+	err := p.ConnectMqtt()
 	if err != nil {
 		return fmt.Errorf("mqttClient.Connect() error %w", err)
 	}
 
-	err = p.ftpClient.Connect()
+	err = p.ConnectFtp()
 	if err != nil {
 		return fmt.Errorf("ftpClient.Connect() error %w", err)
 	}
 
 	return nil
+}
+
+// ConnectMqtt only connects to the MQTT client.
+func (p *Printer) ConnectMqtt() error {
+	return p.mqttClient.Connect()
+}
+
+// ConnectFtp only connects to the FTP client.
+func (p *Printer) ConnectFtp() error {
+	return p.ftpClient.Connect()
 }
 
 // Disconnect disconnects from the underlying clients
