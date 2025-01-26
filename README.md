@@ -13,6 +13,8 @@
 
 This repository provides a **Golang** library to interface with **Bambulabs 3D printers** via network protocols. It allows easy integration of Bambulabs printers into your Go applications, providing access to printer data, control over printer features, and more.
 
+This project does not support the bambulabs cloud api, but it's sister project [bambulabs-cloud-api](github.com/torbenconto/bambulabs-cloud-api) does.
+
 ## Table of Contents
 
 - [Installation](#installation)
