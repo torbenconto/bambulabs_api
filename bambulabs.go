@@ -113,6 +113,43 @@ func (p *Printer) Data() (Data, error) {
 		WifiSignal:              data.Print.WifiSignal,
 	}
 
+	colors := make([]color.RGBA, 0)
+	for _, col := range data.Print.VtTray.Cols {
+		if col == "" {
+			colors = append(colors, color.RGBA{})
+		} else {
+			c, err := parseHexColorFast(col)
+			if err != nil {
+				return Data{}, fmt.Errorf("parseHexColorFast() error %w", err)
+			}
+			colors = append(colors, c)
+		}
+	}
+
+	var trayColor = color.RGBA{}
+	if data.Print.VtTray.TrayColor != "" {
+		var err error
+		trayColor, err = parseHexColorFast(data.Print.VtTray.TrayColor)
+		if err != nil {
+			return Data{}, fmt.Errorf("parseHexColorFast() error %w", err)
+		}
+	}
+
+	final.VtTray = Tray{
+		ID:                unsafeParseInt(data.Print.VtTray.ID),
+		BedTemperature:    unsafeParseFloat(data.Print.VtTray.BedTemp),
+		Colors:            colors,
+		DryingTemperature: unsafeParseFloat(data.Print.VtTray.DryingTemp),
+		DryingTime:        unsafeParseInt(data.Print.VtTray.DryingTime),
+		NozzleTempMax:     unsafeParseFloat(data.Print.VtTray.NozzleTempMax),
+		NozzleTempMin:     unsafeParseFloat(data.Print.VtTray.NozzleTempMin),
+		TrayColor:         trayColor,
+		TrayDiameter:      unsafeParseFloat(data.Print.VtTray.TrayDiameter),
+		TraySubBrands:     data.Print.VtTray.TraySubBrands,
+		TrayType:          data.Print.VtTray.TrayType,
+		TrayWeight:        unsafeParseInt(data.Print.VtTray.TrayWeight),
+	}
+
 	// Process AMS data
 	for _, ams := range data.Print.Ams.Ams {
 		trays := make([]Tray, 0)

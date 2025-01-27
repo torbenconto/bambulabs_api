@@ -49,21 +49,8 @@ type Data struct {
 	NozzleTargetTemperature float64          `json:"nozzle_target_temperature"`  // Target nozzle temperature (°C)
 	NozzleTemperature       float64          `json:"nozzle_temperature"`         // Current nozzle temperature (°C)
 	Sdcard                  bool             `json:"sdcard"`                     // Whether an SD card is inserted
-	VtTray                  struct {         // Built-in tray for use without Ams
-		ID                int          `json:"id"`
-		BedTemperature    float64      `json:"bed_temperature"`
-		Colors            []color.RGBA `json:"colors"`
-		DryingTemperature float64      `json:"drying_temperature"`
-		DryingTime        int          `json:"drying_time"`
-		NozzleTempMax     float64      `json:"nozzle_temp_max"`
-		NozzleTempMin     float64      `json:"nozzle_temp_min"`
-		TrayColor         color.RGBA   `json:"tray_color"`
-		TrayDiameter      float64      `json:"tray_diameter"`
-		TraySubBrands     string       `json:"tray_sub_brands"`
-		TrayType          string       `json:"tray_type"`
-		TrayWeight        int          `json:"tray_weight"`
-	} `json:"vt_tray"`
-	WifiSignal string `json:"wifi_signal"` // Wi-Fi signal strength in dBm
+	VtTray                  Tray             `json:"vt_tray"`                    // Built-in tray for use without Ams
+	WifiSignal              string           `json:"wifi_signal"`                // Wi-Fi signal strength in dBm
 }
 
 // IsEmpty checks if the Data struct is empty using reflection
