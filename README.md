@@ -58,7 +58,7 @@ Once you have the necessary details, you can create and connect to the printer w
 ```go
 // Replace the values below with the ones for your printer
 config := &bambulabs_api.PrinterConfig{
-    IP:           net.IPv4(192, 168, 1, 200),
+    IP:           "192.168.1.200",
     AccessCode:   ACCESS_CODE,
     SerialNumber: SERIAL_NUMBER,
 }
@@ -78,8 +78,8 @@ pool := bambulabs_api.NewPrinterPool()
 Next, add printers to the pool using the AddPrinter method and passing in a config:
 ```go
 configs := []*PrinterConfig{
-    {IP: net.IPv4(192, 168, 2, 5), SerialNumber: "M123ALE29D", AccessCode: "ODJ2j3"},
-    {IP: net.IPv4(192, 168, 2, 6), SerialNumber: "M123ALE29E", AccessCode: "LDAdj3"},
+    {IP: "192.168.1.200", SerialNumber: "M123ALE29D", AccessCode: "ODJ2j3"},
+    {IP: "192.168.1.201", SerialNumber: "M123ALE29E", AccessCode: "LDAdj3"},
 }
 
 for _, config := range configs {
@@ -98,7 +98,7 @@ if err != nil {
 Once connected, you can interact with the printers in the pool using the various methods provided by the PrinterPool struct. For example, you can toggle the light on all printers in the pool:
 ```go
 err := pool.ExecuteAll(func(printer *Printer) error {
-    return printer.Light(light.ChamberLight, true)
+	return printer.LightOn(light.ChamberLight)
 })
 
 if err != nil {
@@ -151,7 +151,7 @@ import (
 
 func main() {
 	config := &bambulabs_api.PrinterConfig{
-		IP:           net.IPv4(192, 168, 1, 200),
+		IP:           "192.168.1.200",
 		AccessCode:   "00293KD0",
 		SerialNumber: "AC1029391BH109",
 	}
@@ -166,7 +166,7 @@ func main() {
     }
 
 	// Attempt to toggle light
-	err = printer.Light(light.ChamberLight, true)
+	err = printer.LightOn(light.ChamberLight)
 	if err != nil {
 		panic(err)
 	}
@@ -202,8 +202,8 @@ func main() {
     pool := bambulabs_api.NewPrinterPool()
 
     configs := []*bambulabs_api.PrinterConfig{
-        {IP: net.IPv4(192, 168, 2, 5), SerialNumber: "M123ALE29D", AccessCode: "ODJ2j3"},
-        {IP: net.IPv4(192, 168, 2, 6), SerialNumber: "M123ALE29E", AccessCode: "LDAdj3"},
+        {IP: "192.168.1.200", SerialNumber: "M123ALE29D", AccessCode: "ODJ2j3"},
+        {IP: "192.168.1.201", SerialNumber: "M123ALE29E", AccessCode: "LDAdj3"},
     }
 
     for _, config := range configs {
@@ -216,8 +216,8 @@ func main() {
     }
 
     err = pool.ExecuteAll(func(printer *bambulabs_api.Printer) error {
-        return printer.Light(light.ChamberLight, true)
-    })
+		return printer.LightOn(light.ChamberLight)
+	})
 
     if err != nil {
         panic(err)
@@ -240,7 +240,7 @@ func main() {
 
 ## Development
 
-### Current Status: IN RELEASING PROCESS
+### Current Status: ALPHA
 
 This library is in active development. While many features have been implemented, certain functions are not fully tested across all supported devices. Contributions are welcome to improve functionality and expand coverage.
 
