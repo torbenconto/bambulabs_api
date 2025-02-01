@@ -215,37 +215,60 @@ func (p *Printer) GetPrinterState() state.GcodeState {
 
 //region Publishing functions (Set)
 
-// Light sets a given light to on (set=true) or off (set=false).
-// TODO: Implement light flashing.
-// This function is working and has been tested on:
-// - [x] X1 Carbon
-func (p *Printer) Light(light _light.Light, set bool) error {
-	// This light_mode is currently believed to be deprecated, leaving here commented in case it ends up being useful later.
-	//command, err := mqtt.NewCommand(mqtt.System).AddCommandField("light_mode").AddParamField("on").JSON()
-	//if err != nil {
-	//	return err
-	//}
-
-	var mode string
-	if set {
-		mode = "on"
-	} else {
-		mode = "off"
-	}
-
-	// https://github.com/Doridian/OpenBambuAPI/blob/main/mqtt.md#systemledctrl
-	command := mqtt.NewCommand(mqtt.System).AddCommandField("ledctrl").AddField("led_node", light).AddField("led_mode", mode)
-	// Add fields only used for mode "flashing" but required nonetheless
-	command.AddField("led_on_time", 500)
-	command.AddField("led_off_time", 500)
-	command.AddField("loop_times", 1)
-	command.AddField("interval_time", 1000)
+func (p *Printer) setLight(light _light.Light, mode _light.Mode) error {
+	// The fields led_on_time, led_off_time, loop_times, and interval_time are only used for mode "flashing" but are required nonetheless.
+	command := mqtt.NewCommand(mqtt.System).
+		AddCommandField("ledctrl").
+		AddField("led_node", light).
+		AddField("led_mode", mode).
+		AddField("led_on_time", 500).
+		AddField("led_off_time", 500).
+		AddField("loop_times", 1).
+		AddField("interval_time", 1000)
 
 	if err := p.mqttClient.Publish(command); err != nil {
 		return fmt.Errorf("error setting light %s: %w", light, err)
 	}
 
 	return nil
+}
+
+func (p *Printer) setLightFlashing(light _light.Light, mode _light.Mode, onTime, offTime, loopTimes, intervalTime int) error {
+	command := mqtt.NewCommand(mqtt.System).
+		AddCommandField("ledctrl").
+		AddField("led_node", light).
+		AddField("led_mode", mode).
+		AddField("led_on_time", onTime).
+		AddField("led_off_time", offTime).
+		AddField("loop_times", loopTimes).
+		AddField("interval_time", intervalTime)
+
+	if err := p.mqttClient.Publish(command); err != nil {
+		return fmt.Errorf("error setting light %s: %w", light, err)
+	}
+
+	return nil
+}
+
+// LightOn turns a given light on.
+// This function is working and has been tested on:
+// - [x] X1 Carbon
+func (p *Printer) LightOn(light _light.Light) error {
+	return p.setLight(light, _light.On)
+}
+
+// LightOff turns a given light off.
+// This function is working and has been tested on:
+// - [x] X1 Carbon
+func (p *Printer) LightOff(light _light.Light) error {
+	return p.setLight(light, _light.Off)
+}
+
+// LightFlashing sets a given light to flash on and off with the specified times.
+// This function is working and has been tested on:
+// - [x] X1 Carbon
+func (p *Printer) LightFlashing(light _light.Light, onTime, offTime, loopTimes, intervalTime int) error {
+	return p.setLightFlashing(light, _light.Flashing, onTime, offTime, loopTimes, intervalTime)
 }
 
 // StopPrint fully stops the current print job.

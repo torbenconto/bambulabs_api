@@ -17,3 +17,24 @@ func (l Light) String() string {
 		return "Unknown"
 	}
 }
+
+type Mode string
+
+const (
+	Off      Mode = "off"
+	On       Mode = "on"
+	Flashing Mode = "flashing"
+)
+
+func (m Mode) String() string {
+	switch m {
+	case Off:
+		return "Off"
+	case On:
+		return "On"
+	case Flashing:
+		return "Flashing"
+	default:
+		return "Unknown"
+	}
+}
