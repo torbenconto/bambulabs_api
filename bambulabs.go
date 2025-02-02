@@ -2,13 +2,16 @@ package bambulabs_api
 
 import (
 	"fmt"
+  
+	_fan "github.com/torbenconto/bambulabs_api/fan"
+	"github.com/torbenconto/bambulabs_api/internal/camera"
+
 	"image/color"
 	"os"
 	"strconv"
 	"time"
 
-	_fan "github.com/torbenconto/bambulabs_api/fan"
-	"github.com/torbenconto/bambulabs_api/hms"
+  "github.com/torbenconto/bambulabs_api/hms"
 	"github.com/torbenconto/bambulabs_api/internal/ftp"
 	"github.com/torbenconto/bambulabs_api/internal/mqtt"
 	_light "github.com/torbenconto/bambulabs_api/light"
@@ -22,8 +25,9 @@ type Printer struct {
 	accessCode string
 	serial     string
 
-	mqttClient *mqtt.Client
-	ftpClient  *ftp.Client
+	mqttClient   *mqtt.Client
+	ftpClient    *ftp.Client
+	cameraClient *camera.CameraClient
 }
 
 func NewPrinter(config *PrinterConfig) *Printer {
@@ -45,6 +49,11 @@ func NewPrinter(config *PrinterConfig) *Printer {
 			Port:       990,
 			Username:   "bblp",
 			AccessCode: config.AccessCode,
+		}),
+		cameraClient: camera.NewCameraClient(&camera.ClientConfig{
+			Hostname:   config.Host,
+			AccessCode: config.AccessCode,
+			Port:       6000,
 		}),
 	}
 }
@@ -208,6 +217,14 @@ func (p *Printer) Data() (Data, error) {
 	}
 
 	return final, nil
+}
+
+// region Get Data Functions
+
+// GetSerial returns the serial number of the printer.
+// This is used to identify the printer.
+func (p *Printer) GetSerial() string {
+	return p.serial
 }
 
 // GetPrinterState gets the current state of the printer.
@@ -522,3 +539,20 @@ func (p *Printer) DeleteFile(path string) error {
 }
 
 //endregion
+
+// region Camera functions
+
+// CaptureFrame calls the underlying camera client to capture a frame from the printer.
+func (p *Printer) CaptureCameraFrame() ([]byte, error) {
+	return p.cameraClient.CaptureFrame()
+}
+
+func (p *Printer) StartCameraStream() (<-chan []byte, error) {
+	return p.cameraClient.StartStream()
+}
+
+func (p *Printer) StopCameraStream() {
+	p.cameraClient.StopStream()
+}
+
+// endregion
