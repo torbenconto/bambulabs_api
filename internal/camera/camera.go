@@ -9,12 +9,14 @@ import (
 	"time"
 )
 
+// ClientConfig holds the configuration for the CameraClient
 type ClientConfig struct {
 	Hostname   string
 	AccessCode string
 	Port       int
 }
 
+// CameraClient represents a client to interact with the camera
 type CameraClient struct {
 	hostname    string
 	port        int
@@ -26,6 +28,7 @@ type CameraClient struct {
 	stopChan    chan struct{}
 }
 
+// NewCameraClient creates a new CameraClient with the given configuration
 func NewCameraClient(config *ClientConfig) *CameraClient {
 	if config.Port == 0 {
 		config.Port = 6000
@@ -41,6 +44,7 @@ func NewCameraClient(config *ClientConfig) *CameraClient {
 	return client
 }
 
+// createAuthPacket creates an authentication packet for the camera
 func createAuthPacket(username string, accessCode string) []byte {
 	authData := make([]byte, 0)
 	authData = append(authData, make([]byte, 4)...)
@@ -56,6 +60,7 @@ func createAuthPacket(username string, accessCode string) []byte {
 	return authData
 }
 
+// findJPEG finds a JPEG image in the buffer and returns the image and the remaining buffer
 func (c *CameraClient) findJPEG(buf []byte, startMarker []byte, endMarker []byte) ([]byte, []byte) {
 	start := indexOf(buf, startMarker)
 	end := indexOf(buf, endMarker, start+len(startMarker))
@@ -65,6 +70,7 @@ func (c *CameraClient) findJPEG(buf []byte, startMarker []byte, endMarker []byte
 	return nil, buf
 }
 
+// indexOf finds the index of a subarray in a buffer starting from a given index
 func indexOf(buf []byte, sub []byte, start ...int) int {
 	s := 0
 	if len(start) > 0 {
@@ -78,6 +84,7 @@ func indexOf(buf []byte, sub []byte, start ...int) int {
 	return -1
 }
 
+// CaptureFrame captures a single frame from the camera
 func (c *CameraClient) CaptureFrame() ([]byte, error) {
 	config := &tls.Config{
 		InsecureSkipVerify: true,
@@ -114,6 +121,7 @@ func (c *CameraClient) CaptureFrame() ([]byte, error) {
 	return nil, nil
 }
 
+// readStream reads the stream from the camera and sends images to the stream channel
 func (c *CameraClient) readStream(r io.Reader) error {
 	buf := make([]byte, 0, 4096)
 	readChunkSize := 4096
@@ -148,6 +156,7 @@ func (c *CameraClient) readStream(r io.Reader) error {
 	return nil
 }
 
+// captureStream captures the stream from the camera and handles reconnection
 func (c *CameraClient) captureStream() {
 	for c.streaming {
 		err := c.connectAndStream()
@@ -163,6 +172,7 @@ func (c *CameraClient) captureStream() {
 	}
 }
 
+// connectAndStream connects to the camera and starts streaming
 func (c *CameraClient) connectAndStream() error {
 	config := &tls.Config{
 		InsecureSkipVerify: true,
@@ -181,6 +191,7 @@ func (c *CameraClient) connectAndStream() error {
 	return c.readStream(conn)
 }
 
+// StartStream starts the video stream from the camera
 func (c *CameraClient) StartStream() (<-chan []byte, error) {
 	c.streamMutex.Lock()
 	defer c.streamMutex.Unlock()
@@ -193,6 +204,7 @@ func (c *CameraClient) StartStream() (<-chan []byte, error) {
 	return c.streamChan, nil
 }
 
+// StopStream stops the video stream from the camera
 func (c *CameraClient) StopStream() error {
 	c.streamMutex.Lock()
 	defer c.streamMutex.Unlock()
