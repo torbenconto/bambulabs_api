@@ -547,7 +547,7 @@ func (p *Printer) DeleteFile(path string) error {
 
 // region Camera functions
 
-// CaptureFrame calls the underlying camera client to capture a frame from the printer.
+// CaptureCameraFrame calls the underlying camera client to capture a frame from the printer.
 func (p *Printer) CaptureCameraFrame() ([]byte, error) {
 	return p.cameraClient.CaptureFrame()
 }
@@ -556,8 +556,13 @@ func (p *Printer) StartCameraStream() (<-chan []byte, error) {
 	return p.cameraClient.StartStream()
 }
 
-func (p *Printer) StopCameraStream() {
-	p.cameraClient.StopStream()
+func (p *Printer) StopCameraStream() error {
+	err := p.cameraClient.StopStream()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // endregion
