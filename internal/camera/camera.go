@@ -84,21 +84,33 @@ func indexOf(buf []byte, sub []byte, start ...int) int {
 	return -1
 }
 
-// CaptureFrame captures a single frame from the camera
-func (c *CameraClient) CaptureFrame() ([]byte, error) {
+// connect establishes a TLS connection to the camera and sends the authentication packet
+func (c *CameraClient) connect() (*tls.Conn, error) {
 	config := &tls.Config{
 		InsecureSkipVerify: true,
+		MinVersion:         tls.VersionTLS12,
 	}
 	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", c.hostname, c.port), config)
+	if err != nil {
+		return nil, fmt.Errorf("error connecting to camera: %w", err)
+	}
+
+	_, err = conn.Write(c.authPacket)
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("error sending auth packet: %w", err)
+	}
+
+	return conn, nil
+}
+
+// CaptureFrame captures a single frame from the camera
+func (c *CameraClient) CaptureFrame() ([]byte, error) {
+	conn, err := c.connect()
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Close()
-
-	_, err = conn.Write(c.authPacket)
-	if err != nil {
-		return nil, err
-	}
 
 	buf := make([]byte, 0)
 	readChunkSize := 4096
@@ -174,19 +186,11 @@ func (c *CameraClient) captureStream() {
 
 // connectAndStream connects to the camera and starts streaming
 func (c *CameraClient) connectAndStream() error {
-	config := &tls.Config{
-		InsecureSkipVerify: true,
-	}
-	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", c.hostname, c.port), config)
+	conn, err := c.connect()
 	if err != nil {
-		return fmt.Errorf("error connecting to camera: %w", err)
+		return err
 	}
 	defer conn.Close()
-
-	_, err = conn.Write(c.authPacket)
-	if err != nil {
-		return fmt.Errorf("error sending auth packet: %w", err)
-	}
 
 	return c.readStream(conn)
 }
