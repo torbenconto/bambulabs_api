@@ -3,11 +3,15 @@ package camera
 import (
 	"crypto/tls"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 	"time"
 )
+
+var ErrNotConnected = errors.New("camera: not connected")
 
 // ClientConfig holds the configuration for the CameraClient
 type ClientConfig struct {
@@ -23,6 +27,8 @@ type Client struct {
 	port        int
 	username    string
 	authPacket  []byte
+	conn        *tls.Conn
+	connMutex   sync.Mutex
 	streaming   bool
 	streamMutex sync.Mutex
 	streamChan  chan []byte
@@ -85,33 +91,40 @@ func indexOf(buf []byte, sub []byte, start ...int) int {
 	return -1
 }
 
-// connect establishes a TLS connection to the camera and sends the authentication packet
-func (c *Client) connect() (*tls.Conn, error) {
+// Connect establishes a TLS connection to the camera and sends the authentication packet
+func (c *Client) Connect() error {
+	c.connMutex.Lock()
+	defer c.connMutex.Unlock()
+
+	if c.conn != nil {
+		return nil // Already connected
+	}
+
 	config := &tls.Config{
 		InsecureSkipVerify: true,
 		MinVersion:         tls.VersionTLS12,
 	}
 	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", c.hostname, c.port), config)
 	if err != nil {
-		return nil, fmt.Errorf("error connecting to camera: %w", err)
+		return fmt.Errorf("error connecting to camera: %w", err)
 	}
 
 	_, err = conn.Write(c.authPacket)
 	if err != nil {
 		conn.Close()
-		return nil, fmt.Errorf("error sending auth packet: %w", err)
+		return fmt.Errorf("error sending auth packet: %w", err)
 	}
 
-	return conn, nil
+	c.conn = conn
+
+	return nil
 }
 
 // CaptureFrame captures a single frame from the camera
 func (c *Client) CaptureFrame() ([]byte, error) {
-	conn, err := c.connect()
-	if err != nil {
-		return nil, err
+	if c.conn == nil {
+		return nil, ErrNotConnected
 	}
-	defer conn.Close()
 
 	buf := make([]byte, 0)
 	readChunkSize := 4096
@@ -120,7 +133,7 @@ func (c *Client) CaptureFrame() ([]byte, error) {
 
 	for {
 		dr := make([]byte, readChunkSize)
-		n, err := conn.Read(dr)
+		n, err := c.conn.Read(dr)
 		if err != nil {
 			break
 		}
@@ -134,8 +147,12 @@ func (c *Client) CaptureFrame() ([]byte, error) {
 	return nil, nil
 }
 
-// readStream reads the stream from the camera and sends images to the stream channel
-func (c *Client) readStream(r io.Reader) error {
+// readStream reads the stream from the camera
+func (c *Client) readStream() error {
+	if c.conn == nil {
+		return ErrNotConnected
+	}
+
 	buf := make([]byte, 0, 4096)
 	readChunkSize := 4096
 	jpegStart := []byte{0xff, 0xd8, 0xff, 0xe0}
@@ -147,7 +164,7 @@ func (c *Client) readStream(r io.Reader) error {
 			return nil
 		default:
 			dr := make([]byte, readChunkSize)
-			n, err := r.Read(dr)
+			n, err := c.conn.Read(dr)
 			if err != nil {
 				if err != io.EOF {
 					return fmt.Errorf("error reading stream: %w", err)
@@ -169,13 +186,12 @@ func (c *Client) readStream(r io.Reader) error {
 	return nil
 }
 
-// captureStream captures the stream from the camera and handles reconnection
+// captureStream continuously reads from the camera's stream
 func (c *Client) captureStream() {
 	for c.streaming {
-		err := c.connectAndStream()
+		err := c.readStream()
 		if err != nil {
-			fmt.Println("Error during streaming:", err)
-			// Wait before attempting to reconnect
+			log.Printf("Error during streaming: %v", err)
 			select {
 			case <-c.stopChan:
 				return
@@ -183,17 +199,6 @@ func (c *Client) captureStream() {
 			}
 		}
 	}
-}
-
-// connectAndStream connects to the camera and starts streaming
-func (c *Client) connectAndStream() error {
-	conn, err := c.connect()
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	return c.readStream(conn)
 }
 
 // StartStream starts the video stream from the camera
