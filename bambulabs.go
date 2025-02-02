@@ -2,15 +2,21 @@ package bambulabs_api
 
 import (
 	"fmt"
+
+	"io"
+
 	_fan "github.com/torbenconto/bambulabs_api/fan"
-	"github.com/torbenconto/bambulabs_api/internal/ftp"
-	"github.com/torbenconto/bambulabs_api/internal/mqtt"
-	_light "github.com/torbenconto/bambulabs_api/light"
-	_printspeed "github.com/torbenconto/bambulabs_api/printspeed"
+	"github.com/torbenconto/bambulabs_api/internal/camera"
+
 	"image/color"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/torbenconto/bambulabs_api/internal/ftp"
+	"github.com/torbenconto/bambulabs_api/internal/mqtt"
+	_light "github.com/torbenconto/bambulabs_api/light"
+	_printspeed "github.com/torbenconto/bambulabs_api/printspeed"
 
 	"github.com/torbenconto/bambulabs_api/state"
 )
@@ -20,8 +26,9 @@ type Printer struct {
 	accessCode string
 	serial     string
 
-	mqttClient *mqtt.Client
-	ftpClient  *ftp.Client
+	mqttClient   *mqtt.Client
+	ftpClient    *ftp.Client
+	cameraClient *camera.CameraClient
 }
 
 func NewPrinter(config *PrinterConfig) *Printer {
@@ -43,6 +50,11 @@ func NewPrinter(config *PrinterConfig) *Printer {
 			Port:       990,
 			Username:   "bblp",
 			AccessCode: config.AccessCode,
+		}),
+		cameraClient: camera.NewCameraClient(&camera.ClientConfig{
+			Hostname:   config.Host,
+			AccessCode: config.AccessCode,
+			Port:       8888,
 		}),
 	}
 }
@@ -206,6 +218,8 @@ func (p *Printer) Data() (Data, error) {
 
 	return final, nil
 }
+
+// region Get Data Functions
 
 // GetPrinterState gets the current state of the printer.
 // This function is currently working but problems exist with the underlying.
@@ -510,6 +524,19 @@ func (p *Printer) RetrieveFile(path string) (os.File, error) {
 // DeleteFile calls the underlying ftp client to delete a file from the printer.
 func (p *Printer) DeleteFile(path string) error {
 	return p.ftpClient.DeleteFile(path)
+}
+
+//endregion
+
+// region Camera functions
+
+// CaptureFrame calls the underlying camera client to capture a frame from the printer.
+func (p *Printer) CaptureFrame() ([]byte, error) {
+	return p.cameraClient.CaptureFrame()
+}
+
+func (p *Printer) CreateCameraStream() (io.ReadCloser, error) {
+	return p.cameraClient.CreateCameraStream()
 }
 
 //endregion
