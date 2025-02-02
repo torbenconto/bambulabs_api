@@ -1,19 +1,13 @@
 package camera
 
 import (
-	"bytes"
 	"crypto/tls"
 	"encoding/binary"
 	"fmt"
 	"io"
+	"sync"
+	"time"
 )
-
-type CameraClient struct {
-	hostname   string
-	accessCode string
-	port       int
-	authPacket []byte
-}
 
 type ClientConfig struct {
 	Hostname   string
@@ -21,46 +15,74 @@ type ClientConfig struct {
 	Port       int
 }
 
-func NewCameraClient(config *ClientConfig) *CameraClient {
-	return &CameraClient{
-		hostname:   config.Hostname,
-		accessCode: config.AccessCode,
-		port:       config.Port,
-		authPacket: createAuthPacket("bblp", config.AccessCode),
-	}
+type CameraClient struct {
+	hostname    string
+	port        int
+	username    string
+	authPacket  []byte
+	streaming   bool
+	streamMutex sync.Mutex
+	streamChan  chan []byte
+	stopChan    chan struct{}
 }
 
-func createAuthPacket(username, accessCode string) []byte {
-	buffer := make([]byte, 76)
-	offset := 0
+func NewCameraClient(config *ClientConfig) *CameraClient {
+	if config.Port == 0 {
+		config.Port = 6000
+	}
+	client := &CameraClient{
+		hostname:   config.Hostname,
+		port:       config.Port,
+		username:   "bblp",
+		authPacket: createAuthPacket("bblp", config.AccessCode),
+		streamChan: make(chan []byte),
+		stopChan:   make(chan struct{}),
+	}
+	return client
+}
 
-	// 0x40 as 4 bytes little-endian
-	binary.LittleEndian.PutUint32(buffer[offset:], 0x40)
-	offset += 4
+func createAuthPacket(username string, accessCode string) []byte {
+	authData := make([]byte, 0)
+	authData = append(authData, make([]byte, 4)...)
+	binary.LittleEndian.PutUint32(authData[0:], 0x40) // '@'\0\0\0
+	authData = append(authData, make([]byte, 4)...)
+	binary.LittleEndian.PutUint32(authData[4:], 0x3000) // \0'0'\0\0
+	authData = append(authData, make([]byte, 8)...)
 
-	// 0x3000 as 4 bytes little-endian
-	binary.LittleEndian.PutUint32(buffer[offset:], 0x3000)
-	offset += 4
+	authData = append(authData, []byte(username)...)
+	authData = append(authData, make([]byte, 32-len(username))...)
+	authData = append(authData, []byte(accessCode)...)
+	authData = append(authData, make([]byte, 32-len(accessCode))...)
+	return authData
+}
 
-	// two 4-byte zeroes
-	binary.LittleEndian.PutUint32(buffer[offset:], 0)
-	offset += 4
-	binary.LittleEndian.PutUint32(buffer[offset:], 0)
-	offset += 4
+func (c *CameraClient) findJPEG(buf []byte, startMarker []byte, endMarker []byte) ([]byte, []byte) {
+	start := indexOf(buf, startMarker)
+	end := indexOf(buf, endMarker, start+len(startMarker))
+	if start != -1 && end != -1 {
+		return buf[start : end+len(endMarker)], buf[end+len(endMarker):]
+	}
+	return nil, buf
+}
 
-	// username, padded to 32 bytes
-	copy(buffer[offset:], []byte(username))
-	offset += 32
-
-	// accessCode, padded to 32 bytes
-	copy(buffer[offset:], []byte(accessCode))
-	offset += 32
-
-	return buffer
+func indexOf(buf []byte, sub []byte, start ...int) int {
+	s := 0
+	if len(start) > 0 {
+		s = start[0]
+	}
+	for i := s; i <= len(buf)-len(sub); i++ {
+		if string(buf[i:i+len(sub)]) == string(sub) {
+			return i
+		}
+	}
+	return -1
 }
 
 func (c *CameraClient) CaptureFrame() ([]byte, error) {
-	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", c.hostname, c.port), &tls.Config{InsecureSkipVerify: true})
+	config := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", c.hostname, c.port), config)
 	if err != nil {
 		return nil, err
 	}
@@ -71,83 +93,115 @@ func (c *CameraClient) CaptureFrame() ([]byte, error) {
 		return nil, err
 	}
 
-	var buf bytes.Buffer
+	buf := make([]byte, 0)
+	readChunkSize := 4096
 	jpegStart := []byte{0xff, 0xd8, 0xff, 0xe0}
 	jpegEnd := []byte{0xff, 0xd9}
 
 	for {
-		chunk := make([]byte, 4096)
-		n, err := conn.Read(chunk)
+		dr := make([]byte, readChunkSize)
+		n, err := conn.Read(dr)
 		if err != nil {
-			return nil, err
+			break
 		}
-		buf.Write(chunk[:n])
+		buf = append(buf, dr[:n]...)
+		img, remaining := c.findJPEG(buf, jpegStart, jpegEnd)
+		if img != nil {
+			return img, nil
+		}
+		buf = remaining
+	}
+	return nil, nil
+}
 
-		frame, remainder := findJpeg(buf.Bytes(), jpegStart, jpegEnd)
-		if frame != nil {
-			return frame, nil
+func (c *CameraClient) readStream(r io.Reader) error {
+	buf := make([]byte, 0, 4096)
+	readChunkSize := 4096
+	jpegStart := []byte{0xff, 0xd8, 0xff, 0xe0}
+	jpegEnd := []byte{0xff, 0xd9}
+
+	for c.streaming {
+		select {
+		case <-c.stopChan:
+			return nil
+		default:
+			dr := make([]byte, readChunkSize)
+			n, err := r.Read(dr)
+			if err != nil {
+				if err != io.EOF {
+					return fmt.Errorf("error reading stream: %w", err)
+				}
+				return nil
+			}
+			buf = append(buf, dr[:n]...)
+			for {
+				img, remaining := c.findJPEG(buf, jpegStart, jpegEnd)
+				if img == nil {
+					buf = remaining
+					break
+				}
+				c.streamChan <- img
+				buf = remaining
+			}
 		}
-		buf.Reset()
-		buf.Write(remainder)
+	}
+	return nil
+}
+
+func (c *CameraClient) captureStream() {
+	for c.streaming {
+		err := c.connectAndStream()
+		if err != nil {
+			fmt.Println("Error during streaming:", err)
+			// Wait before attempting to reconnect
+			select {
+			case <-c.stopChan:
+				return
+			case <-time.After(5 * time.Second):
+			}
+		}
 	}
 }
 
-func (c *CameraClient) CreateCameraStream() (io.ReadCloser, error) {
-	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", c.hostname, c.port), &tls.Config{InsecureSkipVerify: true})
-	if err != nil {
-		return nil, err
+func (c *CameraClient) connectAndStream() error {
+	config := &tls.Config{
+		InsecureSkipVerify: true,
 	}
+	conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", c.hostname, c.port), config)
+	if err != nil {
+		return fmt.Errorf("error connecting to camera: %w", err)
+	}
+	defer conn.Close()
 
 	_, err = conn.Write(c.authPacket)
 	if err != nil {
-		conn.Close()
-		return nil, err
+		return fmt.Errorf("error sending auth packet: %w", err)
 	}
 
-	pr, pw := io.Pipe()
-	go func() {
-		defer conn.Close()
-		defer pw.Close()
-
-		var buf bytes.Buffer
-		jpegStart := []byte{0xff, 0xd8, 0xff, 0xe0}
-		jpegEnd := []byte{0xff, 0xd9}
-
-		for {
-			chunk := make([]byte, 4096)
-			n, err := conn.Read(chunk)
-			if err != nil {
-				pw.CloseWithError(err)
-				return
-			}
-			buf.Write(chunk[:n])
-
-			for {
-				frame, remainder := findJpeg(buf.Bytes(), jpegStart, jpegEnd)
-				if frame != nil {
-					_, err := pw.Write(frame)
-					if err != nil {
-						pw.CloseWithError(err)
-						return
-					}
-					buf.Reset()
-					buf.Write(remainder)
-				} else {
-					break
-				}
-			}
-		}
-	}()
-
-	return pr, nil
+	return c.readStream(conn)
 }
 
-func findJpeg(buf, startMarker, endMarker []byte) ([]byte, []byte) {
-	start := bytes.Index(buf, startMarker)
-	end := bytes.Index(buf[start:], endMarker)
-	if start != -1 && end != -1 {
-		end += start + len(endMarker)
-		return buf[start:end], buf[end:]
+func (c *CameraClient) StartStream() (<-chan []byte, error) {
+	c.streamMutex.Lock()
+	defer c.streamMutex.Unlock()
+	if c.streaming {
+		return nil, fmt.Errorf("stream already running")
 	}
-	return nil, buf
+
+	c.streaming = true
+	go c.captureStream()
+	return c.streamChan, nil
+}
+
+func (c *CameraClient) StopStream() error {
+	c.streamMutex.Lock()
+	defer c.streamMutex.Unlock()
+	if !c.streaming {
+		return fmt.Errorf("stream is not running")
+	}
+
+	c.streaming = false
+	close(c.stopChan)
+	c.stopChan = make(chan struct{})
+	return nil
 }

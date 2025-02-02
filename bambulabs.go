@@ -3,8 +3,6 @@ package bambulabs_api
 import (
 	"fmt"
 
-	"io"
-
 	_fan "github.com/torbenconto/bambulabs_api/fan"
 	"github.com/torbenconto/bambulabs_api/internal/camera"
 
@@ -54,7 +52,7 @@ func NewPrinter(config *PrinterConfig) *Printer {
 		cameraClient: camera.NewCameraClient(&camera.ClientConfig{
 			Hostname:   config.Host,
 			AccessCode: config.AccessCode,
-			Port:       8888,
+			Port:       6000,
 		}),
 	}
 }
@@ -220,6 +218,12 @@ func (p *Printer) Data() (Data, error) {
 }
 
 // region Get Data Functions
+
+// GetSerial returns the serial number of the printer.
+// This is used to identify the printer.
+func (p *Printer) GetSerial() string {
+	return p.serial
+}
 
 // GetPrinterState gets the current state of the printer.
 // This function is currently working but problems exist with the underlying.
@@ -531,12 +535,16 @@ func (p *Printer) DeleteFile(path string) error {
 // region Camera functions
 
 // CaptureFrame calls the underlying camera client to capture a frame from the printer.
-func (p *Printer) CaptureFrame() ([]byte, error) {
+func (p *Printer) CaptureCameraFrame() ([]byte, error) {
 	return p.cameraClient.CaptureFrame()
 }
 
-func (p *Printer) CreateCameraStream() (io.ReadCloser, error) {
-	return p.cameraClient.CreateCameraStream()
+func (p *Printer) StartCameraStream() (<-chan []byte, error) {
+	return p.cameraClient.StartStream()
 }
 
-//endregion
+func (p *Printer) StopCameraStream() {
+	p.cameraClient.StopStream()
+}
+
+// endregion
