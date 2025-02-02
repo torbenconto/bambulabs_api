@@ -120,6 +120,20 @@ func (c *Client) Connect() error {
 	return nil
 }
 
+// Disconnect closes the connection to the camera
+func (c *Client) Disconnect() error {
+	c.connMutex.Lock()
+	defer c.connMutex.Unlock()
+
+	if c.conn == nil {
+		return nil // Already disconnected
+	}
+
+	err := c.conn.Close()
+	c.conn = nil
+	return err
+}
+
 // CaptureFrame captures a single frame from the camera
 func (c *Client) CaptureFrame() ([]byte, error) {
 	if c.conn == nil {

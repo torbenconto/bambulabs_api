@@ -70,14 +70,26 @@ func (p *Printer) Connect() error {
 		return fmt.Errorf("ftpClient.Connect() error %w", err)
 	}
 
+	err = p.cameraClient.Connect()
+	if err != nil {
+		return fmt.Errorf("cameraClient.Connect() error %w", err)
+	}
+
 	return nil
 }
 
 // Disconnect disconnects from the underlying clients
 func (p *Printer) Disconnect() error {
 	p.mqttClient.Disconnect()
-	if err := p.ftpClient.Disconnect(); err != nil {
+
+	err := p.ftpClient.Disconnect()
+	if err != nil {
 		return fmt.Errorf("ftpClient.Disconnect() error %w", err)
+	}
+
+	err = p.cameraClient.Disconnect()
+	if err != nil {
+		return fmt.Errorf("cameraClient.Disconnect() error %w", err)
 	}
 
 	return nil
