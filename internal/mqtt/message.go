@@ -1,5 +1,7 @@
 package mqtt
 
+import "github.com/torbenconto/bambulabs_api/hms"
+
 type Message struct {
 	Print struct {
 		Ams struct {
@@ -40,28 +42,28 @@ type Message struct {
 			TrayTar          string `json:"tray_tar"`
 			Version          int    `json:"version"`
 		} `json:"ams"`
-		AmsRfidStatus           int     `json:"ams_rfid_status"`
-		AmsStatus               int     `json:"ams_status"`
-		AuxPartFan              bool    `json:"aux_part_fan"`
-		BedTargetTemper         float64 `json:"bed_target_temper"`
-		BedTemper               float64 `json:"bed_temper"`
-		BigFan1Speed            string  `json:"big_fan1_speed"`
-		BigFan2Speed            string  `json:"big_fan2_speed"`
-		ChamberTemper           float64 `json:"chamber_temper"`
-		Command                 string  `json:"command"`
-		CoolingFanSpeed         string  `json:"cooling_fan_speed"`
-		FailReason              string  `json:"fail_reason"`
-		FanGear                 int     `json:"fan_gear"`
-		FilamBak                []any   `json:"filam_bak"`
-		ForceUpgrade            bool    `json:"force_upgrade"`
-		GcodeFile               string  `json:"gcode_file"`
-		GcodeFilePreparePercent string  `json:"gcode_file_prepare_percent"`
-		GcodeStartTime          string  `json:"gcode_start_time"`
-		GcodeState              string  `json:"gcode_state"`
-		HeatbreakFanSpeed       string  `json:"heatbreak_fan_speed"`
-		Hms                     []any   `json:"hms"`
-		HomeFlag                int     `json:"home_flag"`
-		HwSwitchState           int     `json:"hw_switch_state"`
+		AmsRfidStatus           int            `json:"ams_rfid_status"`
+		AmsStatus               int            `json:"ams_status"`
+		AuxPartFan              bool           `json:"aux_part_fan"`
+		BedTargetTemper         float64        `json:"bed_target_temper"`
+		BedTemper               float64        `json:"bed_temper"`
+		BigFan1Speed            string         `json:"big_fan1_speed"`
+		BigFan2Speed            string         `json:"big_fan2_speed"`
+		ChamberTemper           float64        `json:"chamber_temper"`
+		Command                 string         `json:"command"`
+		CoolingFanSpeed         string         `json:"cooling_fan_speed"`
+		FailReason              string         `json:"fail_reason"`
+		FanGear                 int            `json:"fan_gear"`
+		FilamBak                []any          `json:"filam_bak"`
+		ForceUpgrade            bool           `json:"force_upgrade"`
+		GcodeFile               string         `json:"gcode_file"`
+		GcodeFilePreparePercent string         `json:"gcode_file_prepare_percent"`
+		GcodeStartTime          string         `json:"gcode_start_time"`
+		GcodeState              string         `json:"gcode_state"`
+		HeatbreakFanSpeed       string         `json:"heatbreak_fan_speed"`
+		HMS                     []hms.HMSError `json:"hms"`
+		HomeFlag                int            `json:"home_flag"`
+		HwSwitchState           int            `json:"hw_switch_state"`
 		Ipcam                   struct {
 			IpcamDev    string `json:"ipcam_dev"`
 			IpcamRecord string `json:"ipcam_record"`

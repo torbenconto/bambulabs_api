@@ -1,9 +1,11 @@
 package bambulabs_api
 
 import (
-	"github.com/torbenconto/bambulabs_api/state"
 	"image/color"
 	"reflect"
+
+	"github.com/torbenconto/bambulabs_api/hms"
+	"github.com/torbenconto/bambulabs_api/state"
 )
 
 type Tray struct {
@@ -41,7 +43,7 @@ type Data struct {
 	GcodeFile               string           `json:"gcode_file"`                 // Name of the current G-code file
 	GcodeFilePreparePercent int              `json:"gcode_file_prepare_percent"` // Print preparation percentage
 	GcodeState              state.GcodeState `json:"gcode_state"`                // Current printer state
-	Hms                     []any            `json:"hms"`                        // List of errors (TODO: not fully implemented)
+	HMS                     []hms.HMSError   `json:"hms"`                        // List of errors (TODO: not fully implemented)
 	PrintPercentDone        int              `json:"print_percent_done"`         // Current print completion percentage
 	PrintErrorCode          string           `json:"print_error_code"`           // Current print error code
 	RemainingPrintTime      int              `json:"remaining_print_time"`       // Estimated remaining print time (minutes)
