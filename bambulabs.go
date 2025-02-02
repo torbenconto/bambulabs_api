@@ -26,7 +26,7 @@ type Printer struct {
 
 	mqttClient   *mqtt.Client
 	ftpClient    *ftp.Client
-	cameraClient *camera.CameraClient
+	cameraClient *camera.Client
 }
 
 func NewPrinter(config *PrinterConfig) *Printer {
@@ -49,9 +49,10 @@ func NewPrinter(config *PrinterConfig) *Printer {
 			Username:   "bblp",
 			AccessCode: config.AccessCode,
 		}),
-		cameraClient: camera.NewCameraClient(&camera.ClientConfig{
+		cameraClient: camera.NewClient(&camera.ClientConfig{
 			Hostname:   config.Host,
 			AccessCode: config.AccessCode,
+			Username:   "bblp",
 			Port:       6000,
 		}),
 	}

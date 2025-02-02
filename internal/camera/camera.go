@@ -13,11 +13,12 @@ import (
 type ClientConfig struct {
 	Hostname   string
 	AccessCode string
+	Username   string
 	Port       int
 }
 
-// CameraClient represents a client to interact with the camera
-type CameraClient struct {
+// Client represents a client to interact with the camera
+type Client struct {
 	hostname    string
 	port        int
 	username    string
@@ -28,16 +29,16 @@ type CameraClient struct {
 	stopChan    chan struct{}
 }
 
-// NewCameraClient creates a new CameraClient with the given configuration
-func NewCameraClient(config *ClientConfig) *CameraClient {
+// NewClient creates a new CameraClient with the given configuration
+func NewClient(config *ClientConfig) *Client {
 	if config.Port == 0 {
 		config.Port = 6000
 	}
-	client := &CameraClient{
+	client := &Client{
 		hostname:   config.Hostname,
 		port:       config.Port,
-		username:   "bblp",
-		authPacket: createAuthPacket("bblp", config.AccessCode),
+		username:   config.Username,
+		authPacket: createAuthPacket(config.Username, config.AccessCode),
 		streamChan: make(chan []byte),
 		stopChan:   make(chan struct{}),
 	}
@@ -61,7 +62,7 @@ func createAuthPacket(username string, accessCode string) []byte {
 }
 
 // findJPEG finds a JPEG image in the buffer and returns the image and the remaining buffer
-func (c *CameraClient) findJPEG(buf []byte, startMarker []byte, endMarker []byte) ([]byte, []byte) {
+func (c *Client) findJPEG(buf []byte, startMarker []byte, endMarker []byte) ([]byte, []byte) {
 	start := indexOf(buf, startMarker)
 	end := indexOf(buf, endMarker, start+len(startMarker))
 	if start != -1 && end != -1 {
@@ -85,7 +86,7 @@ func indexOf(buf []byte, sub []byte, start ...int) int {
 }
 
 // connect establishes a TLS connection to the camera and sends the authentication packet
-func (c *CameraClient) connect() (*tls.Conn, error) {
+func (c *Client) connect() (*tls.Conn, error) {
 	config := &tls.Config{
 		InsecureSkipVerify: true,
 		MinVersion:         tls.VersionTLS12,
@@ -105,7 +106,7 @@ func (c *CameraClient) connect() (*tls.Conn, error) {
 }
 
 // CaptureFrame captures a single frame from the camera
-func (c *CameraClient) CaptureFrame() ([]byte, error) {
+func (c *Client) CaptureFrame() ([]byte, error) {
 	conn, err := c.connect()
 	if err != nil {
 		return nil, err
@@ -134,7 +135,7 @@ func (c *CameraClient) CaptureFrame() ([]byte, error) {
 }
 
 // readStream reads the stream from the camera and sends images to the stream channel
-func (c *CameraClient) readStream(r io.Reader) error {
+func (c *Client) readStream(r io.Reader) error {
 	buf := make([]byte, 0, 4096)
 	readChunkSize := 4096
 	jpegStart := []byte{0xff, 0xd8, 0xff, 0xe0}
@@ -169,7 +170,7 @@ func (c *CameraClient) readStream(r io.Reader) error {
 }
 
 // captureStream captures the stream from the camera and handles reconnection
-func (c *CameraClient) captureStream() {
+func (c *Client) captureStream() {
 	for c.streaming {
 		err := c.connectAndStream()
 		if err != nil {
@@ -185,7 +186,7 @@ func (c *CameraClient) captureStream() {
 }
 
 // connectAndStream connects to the camera and starts streaming
-func (c *CameraClient) connectAndStream() error {
+func (c *Client) connectAndStream() error {
 	conn, err := c.connect()
 	if err != nil {
 		return err
@@ -196,7 +197,7 @@ func (c *CameraClient) connectAndStream() error {
 }
 
 // StartStream starts the video stream from the camera
-func (c *CameraClient) StartStream() (<-chan []byte, error) {
+func (c *Client) StartStream() (<-chan []byte, error) {
 	c.streamMutex.Lock()
 	defer c.streamMutex.Unlock()
 	if c.streaming {
@@ -209,7 +210,7 @@ func (c *CameraClient) StartStream() (<-chan []byte, error) {
 }
 
 // StopStream stops the video stream from the camera
-func (c *CameraClient) StopStream() error {
+func (c *Client) StopStream() error {
 	c.streamMutex.Lock()
 	defer c.streamMutex.Unlock()
 	if !c.streaming {
