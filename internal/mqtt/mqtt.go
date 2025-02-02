@@ -3,7 +3,6 @@ package mqtt
 import (
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"reflect"
@@ -14,11 +13,11 @@ import (
 )
 
 const (
-	clientID          = "golang-bambulabs-api"
-	topicTemplate     = "device/%s/report"
-	commandTopic      = "device/%s/request"
-	qos               = 0
-	connectionTimeout = 10 * time.Second
+	clientID       = "golang-bambulabs-api"
+	topicTemplate  = "device/%s/report"
+	commandTopic   = "device/%s/request"
+	qos            = 0
+	updateInterval = 10 * time.Second
 )
 
 // ClientConfig holds the configuration details for the MQTT client.
@@ -40,34 +39,31 @@ type Client struct {
 	lastUpdate  time.Time
 	messageChan chan []byte
 	doneChan    chan struct{}
+	ticker      *time.Ticker
 }
 
-// NewClient creates and initializes a new MQTT client.
+// NewClient initializes a new MQTT client.
 func NewClient(config *ClientConfig) *Client {
-	options := paho.NewClientOptions()
-	options.AddBroker(fmt.Sprintf("mqtts://%s:%d", config.Host, config.Port))
-	options.SetClientID(clientID)
-	options.SetUsername(config.Username)
-	options.SetPassword(config.AccessCode)
-	options.SetTLSConfig(&tls.Config{InsecureSkipVerify: true})
-	options.SetAutoReconnect(true)
+	opts := paho.NewClientOptions().
+		AddBroker(fmt.Sprintf("mqtts://%s:%d", config.Host, config.Port)).
+		SetClientID(clientID).
+		SetUsername(config.Username).
+		SetPassword(config.AccessCode).
+		SetTLSConfig(&tls.Config{InsecureSkipVerify: true}).
+		SetAutoReconnect(true)
 
 	client := &Client{
 		config:      config,
-		data:        Message{},
-		lastUpdate:  time.Now(),
 		messageChan: make(chan []byte, 200),
 		doneChan:    make(chan struct{}),
+		ticker:      time.NewTicker(updateInterval),
 	}
 
-	options.SetOnConnectHandler(client.handleConnect)
-	options.SetConnectionLostHandler(client.handleConnectionLost)
-	options.SetDefaultPublishHandler(client.handleMessage)
+	opts.SetOnConnectHandler(client.onConnect)
+	opts.SetConnectionLostHandler(client.onConnectionLost)
+	opts.SetDefaultPublishHandler(client.handleMessage)
 
-	client.client = paho.NewClient(options)
-
-	go client.processMessages()
-	go client.periodicUpdate()
+	client.client = paho.NewClient(opts)
 
 	return client
 }
@@ -78,15 +74,18 @@ func (c *Client) Connect() error {
 	if token.Wait() && token.Error() != nil {
 		return fmt.Errorf("failed to connect to MQTT broker: %w", token.Error())
 	}
-	log.Println("MQTT client connected")
+	log.Println("Connected to MQTT broker")
+	go c.processMessages()
+	go c.periodicUpdate()
 	return nil
 }
 
-// Disconnect gracefully disconnects from the MQTT broker.
+// Disconnect gracefully closes the connection.
 func (c *Client) Disconnect() {
 	close(c.doneChan)
-	c.client.Disconnect(uint(connectionTimeout.Milliseconds()))
-	log.Println("MQTT client disconnected")
+	c.ticker.Stop()
+	c.client.Disconnect(250)
+	log.Println("Disconnected from MQTT broker")
 }
 
 // Publish sends a command message to the MQTT broker.
@@ -106,57 +105,75 @@ func (c *Client) Publish(command *Command) error {
 	return nil
 }
 
-// Data retrieves the latest data, updating if necessary.
+// Data retrieves the latest data and triggers an update if stale.
 func (c *Client) Data() Message {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	if time.Since(c.lastUpdate) > c.config.Timeout {
-		if err := c.update(); err != nil {
-			log.Printf("Failed to update data: %v", err)
-		}
+		go c.update()
 	}
 	return c.data
 }
 
-// update refreshes the client data by pushing a "push_all" command.
-func (c *Client) update() error {
-	if time.Since(c.lastUpdate) <= c.config.Timeout {
-		return errors.New("update called before timeout")
-	}
-	c.lastUpdate = time.Now()
+// Private methods
 
-	command := NewCommand(Pushing).AddCommandField("push_all")
-	return c.Publish(command)
+// update triggers a data refresh by publishing a "push_all" command.
+func (c *Client) update() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if time.Since(c.lastUpdate) < c.config.Timeout {
+		return
+	}
+
+	c.lastUpdate = time.Now()
+	command := NewCommand(Pushing).AddCommandField("pushall")
+	js, _ := command.JSON()
+	fmt.Println("command", js)
+	if err := c.Publish(command); err != nil {
+		log.Printf("Failed to publish update command: %v", err)
+	}
 }
 
-// handleConnect subscribes to the required topic upon successful connection.
-func (c *Client) handleConnect(client paho.Client) {
+func (c *Client) periodicUpdate() {
+	for {
+		select {
+		case <-c.ticker.C:
+			c.update()
+		case <-c.doneChan:
+			return
+		}
+	}
+}
+
+// onConnect subscribes to the data topic.
+func (c *Client) onConnect(client paho.Client) {
 	topic := fmt.Sprintf(topicTemplate, c.config.Serial)
 	token := client.Subscribe(topic, qos, nil)
 	if token.Wait() && token.Error() != nil {
-		log.Printf("Error subscribing to topic %s: %v", topic, token.Error())
-	} else {
-		log.Printf("Subscribed to topic %s", topic)
+		log.Printf("Failed to subscribe to topic %s: %v", topic, token.Error())
+		return
 	}
+	log.Printf("Subscribed to topic %s", topic)
 }
 
-// handleConnectionLost logs the connection loss.
-func (c *Client) handleConnectionLost(client paho.Client, err error) {
+// onConnectionLost logs connection loss.
+func (c *Client) onConnectionLost(client paho.Client, err error) {
 	log.Printf("Connection lost: %v", err)
 }
 
-// handleMessage enqueues incoming messages for processing.
+// handleMessage queues incoming messages for processing.
 func (c *Client) handleMessage(client paho.Client, msg paho.Message) {
 	select {
 	case c.messageChan <- msg.Payload():
-		log.Printf("Message enqueued: %s", msg.Topic())
+		log.Printf("Message received: %s", msg.Topic())
 	default:
-		log.Println("Message channel full; dropping message")
+		log.Println("Message dropped: channel full")
 	}
 }
 
-// processMessages processes messages from the channel and updates the data.
+// processMessages processes incoming messages from the channel.
 func (c *Client) processMessages() {
 	for {
 		select {
@@ -168,62 +185,51 @@ func (c *Client) processMessages() {
 	}
 }
 
-// processPayload validates and updates the client data.
+// processPayload updates the client data with the incoming message.
 func (c *Client) processPayload(payload []byte) {
 	var received Message
 	if err := json.Unmarshal(payload, &received); err != nil {
-		log.Printf("Error unmarshaling message: %v", err)
+		log.Printf("Failed to unmarshal message: %v", err)
 		return
 	}
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	// Perform fine-grained updates
 	mergeMessages(&c.data, &received)
-	log.Printf("Updated data: %v", c.data)
+	//log.Printf("Updated data: %+v", c.data)
 }
 
-// mergeMessages updates fields in the existing message with those from the new message.
+// mergeMessages recursively merges the existing and new messages.
 func mergeMessages(existing, new *Message) {
-	existingValue := reflect.ValueOf(existing).Elem()
-	newValue := reflect.ValueOf(new).Elem()
+	// Use reflection to iterate through the fields of the "Print" struct.
+	mergeStructs(&existing.Print, &new.Print)
+}
 
-	for i := 0; i < existingValue.NumField(); i++ {
-		field := existingValue.Type().Field(i)
-		existingField := existingValue.Field(i)
-		newField := newValue.Field(i)
+// mergeStructs dynamically merges fields of two structs using reflection.
+func mergeStructs(existing, new interface{}) {
+	existingVal := reflect.ValueOf(existing).Elem()
+	newVal := reflect.ValueOf(new).Elem()
 
-		// Only update if the new field is valid and has a non-zero value
-		if newField.IsValid() && !isZeroValue(newField) {
-			if existingField.Kind() == reflect.Struct {
-				// Recursively merge nested structs
-				mergeMessages(existingField.Addr().Interface().(*Message), newField.Addr().Interface().(*Message))
+	// Iterate over each field in the struct.
+	for i := 0; i < existingVal.NumField(); i++ {
+		field := existingVal.Field(i)
+
+		// Ensure that the field is a valid field to merge.
+		newField := newVal.Field(i)
+		if !newField.IsValid() {
+			continue
+		}
+
+		// Only merge if the field is non-zero in the new struct.
+		if !newField.IsZero() {
+			// If it's a struct, recursively merge it.
+			if newField.Kind() == reflect.Struct {
+				mergeStructs(field.Addr().Interface(), newField.Addr().Interface())
 			} else {
-				existingField.Set(newField)
-				log.Printf("Updated field '%s': %v", field.Name, newField.Interface())
+				// Otherwise, set the field to the new value.
+				field.Set(newField)
 			}
 		}
 	}
-}
-
-func (c *Client) periodicUpdate() {
-	ticker := time.NewTicker(c.config.Timeout)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			if err := c.update(); err != nil {
-				log.Printf("Failed to update data: %v", err)
-			}
-		case <-c.doneChan:
-			return
-		}
-	}
-}
-
-// isZeroValue checks if a field is its zero value (e.g., 0 for int, "" for string).
-func isZeroValue(v reflect.Value) bool {
-	return reflect.DeepEqual(v.Interface(), reflect.Zero(v.Type()).Interface())
 }
