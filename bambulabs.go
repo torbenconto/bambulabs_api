@@ -218,7 +218,7 @@ func (p *Printer) GetPrinterState() state.GcodeState {
 
 // GetHMSErrors gets the current errors from the printer.
 // This function is currently untested.
-func (p *Printer) GetHMSErrors() []hms.HMSError {
+func (p *Printer) GetHMSErrors() []hms.Error {
 	return p.mqttClient.Data().Print.HMS
 }
 

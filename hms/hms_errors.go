@@ -1,7 +1,7 @@
 package hms
 
 // https://github.com/ntalekt/homeassistant/blob/300d9eb5da7428df81f632d6af9c0f80bf24ca4d/custom_components/bambu_lab/pybambu/const.py
-var HMSErrors = map[string]string{
+var Errors = map[string]string{
 	"0C00_0300_0002_0010": "Foreign objects detected on hotbed: please check and clean the hotbed.",
 	"0500_0100_0003_0004": "Not enough space in MicroSD Card; please clear some space.",
 	"0300_0200_0001_0006": "The nozzle temperature is abnormal; the sensor may have a short circuit. Please check whether the connector is properly plugged in.",
@@ -523,7 +523,7 @@ var HMSErrors = map[string]string{
 
 // 070X_xYxx_xxxx_xxxx = AMS X (0 based index) Slot Y (0 based index) has the error.
 
-var HMSAMSErrors = map[string]string{
+var AMSErrors = map[string]string{
 	"0700_3000_0002_0002": "The RFID-tag on AMS1 Slot1 is damaged or the it's content cannot be identified.",
 	"0700_3100_0002_0002": "The RFID-tag on AMS1 Slot2 is damaged or the it's content cannot be identified.",
 	"0700_3200_0002_0002": "The RFID-tag on AMS1 Slot3 is damaged or the it's content cannot be identified.",
