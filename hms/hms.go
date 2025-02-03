@@ -109,6 +109,10 @@ func (e Error) GetGenericErrorCode() string {
 	)
 }
 
+func (e Error) String() string {
+	return Errors[e.GetCode()]
+}
+
 func (e Error) GetWikiLink() string {
 	if e.Attribute > 0 && e.Code > 0 {
 		return fmt.Sprintf("https://wiki.bambulab.com/en/x1/troubleshooting/hmscode/%s", e.GetGenericErrorCode())
