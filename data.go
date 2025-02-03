@@ -54,7 +54,7 @@ type Data struct {
 }
 
 // IsEmpty checks if the Data struct is empty using reflection
-func (d Data) IsEmpty() bool {
+func (d *Data) IsEmpty() bool {
 	dataValue := reflect.ValueOf(d).Elem()
 	for i := 0; i < dataValue.NumField(); i++ {
 		field := dataValue.Field(i)
