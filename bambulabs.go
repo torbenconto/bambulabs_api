@@ -2,7 +2,7 @@ package bambulabs_api
 
 import (
 	"fmt"
-
+  
 	_fan "github.com/torbenconto/bambulabs_api/fan"
 	"github.com/torbenconto/bambulabs_api/internal/camera"
 
@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+  "github.com/torbenconto/bambulabs_api/hms"
 	"github.com/torbenconto/bambulabs_api/internal/ftp"
 	"github.com/torbenconto/bambulabs_api/internal/mqtt"
 	_light "github.com/torbenconto/bambulabs_api/light"
@@ -116,6 +117,7 @@ func (p *Printer) Data() (Data, error) {
 		PrintPercentDone:        data.Print.McPercent,
 		PrintErrorCode:          data.Print.McPrintErrorCode,
 		RemainingPrintTime:      data.Print.McRemainingTime,
+		HMS:                     data.Print.HMS,
 		NozzleDiameter:          data.Print.NozzleDiameter,
 		NozzleTargetTemperature: data.Print.NozzleTargetTemper,
 		NozzleTemperature:       data.Print.NozzleTemper,
@@ -229,6 +231,12 @@ func (p *Printer) GetSerial() string {
 // This function is currently working but problems exist with the underlying.
 func (p *Printer) GetPrinterState() state.GcodeState {
 	return state.GcodeState(p.mqttClient.Data().Print.GcodeState)
+}
+
+// GetHMSErrors gets the current errors from the printer.
+// This function is currently untested.
+func (p *Printer) GetHMSErrors() []hms.Error {
+	return p.mqttClient.Data().Print.HMS
 }
 
 //region Publishing functions (Set)
