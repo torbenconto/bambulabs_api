@@ -27,7 +27,7 @@ type Printer struct {
 
 	mqttClient   *mqtt.Client
 	ftpClient    *ftp.Client
-	cameraClient *camera.CameraClient
+	cameraClient *camera.Client
 }
 
 func NewPrinter(config *PrinterConfig) *Printer {
@@ -50,9 +50,10 @@ func NewPrinter(config *PrinterConfig) *Printer {
 			Username:   "bblp",
 			AccessCode: config.AccessCode,
 		}),
-		cameraClient: camera.NewCameraClient(&camera.ClientConfig{
+		cameraClient: camera.NewClient(&camera.ClientConfig{
 			Hostname:   config.Host,
 			AccessCode: config.AccessCode,
+			Username:   "bblp",
 			Port:       6000,
 		}),
 	}
@@ -70,14 +71,26 @@ func (p *Printer) Connect() error {
 		return fmt.Errorf("ftpClient.Connect() error %w", err)
 	}
 
+	err = p.cameraClient.Connect()
+	if err != nil {
+		return fmt.Errorf("cameraClient.Connect() error %w", err)
+	}
+
 	return nil
 }
 
 // Disconnect disconnects from the underlying clients
 func (p *Printer) Disconnect() error {
 	p.mqttClient.Disconnect()
-	if err := p.ftpClient.Disconnect(); err != nil {
+
+	err := p.ftpClient.Disconnect()
+	if err != nil {
 		return fmt.Errorf("ftpClient.Disconnect() error %w", err)
+	}
+
+	err = p.cameraClient.Disconnect()
+	if err != nil {
+		return fmt.Errorf("cameraClient.Disconnect() error %w", err)
 	}
 
 	return nil
@@ -542,7 +555,7 @@ func (p *Printer) DeleteFile(path string) error {
 
 // region Camera functions
 
-// CaptureFrame calls the underlying camera client to capture a frame from the printer.
+// CaptureCameraFrame calls the underlying camera client to capture a frame from the printer.
 func (p *Printer) CaptureCameraFrame() ([]byte, error) {
 	return p.cameraClient.CaptureFrame()
 }
@@ -551,8 +564,13 @@ func (p *Printer) StartCameraStream() (<-chan []byte, error) {
 	return p.cameraClient.StartStream()
 }
 
-func (p *Printer) StopCameraStream() {
-	p.cameraClient.StopStream()
+func (p *Printer) StopCameraStream() error {
+	err := p.cameraClient.StopStream()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // endregion
