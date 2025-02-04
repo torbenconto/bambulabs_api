@@ -1,6 +1,7 @@
 package hms_test
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/torbenconto/bambulabs_api/hms"
 	"testing"
@@ -77,6 +78,49 @@ func TestGetWikiLink(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.expected, tt.error.GetWikiLink())
+		})
+	}
+}
+
+func TestString(t *testing.T) {
+	type test struct {
+		name     string
+		error    *hms.Error
+		expected string
+	}
+
+	tests := []test{
+		{"AMS Error", &hms.Error{Attribute: 0x12011000, Code: 0x00020002}, "The AMS2 Slot1 motor is overloaded. The filament may be tangled or stuck."},
+	}
+
+	for k, v := range hms.Errors {
+		tests = append(tests, test{
+			name:     fmt.Sprintf("%s - %s", k, v),
+			error:    hms.NewError(k),
+			expected: v,
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.error.String())
+		})
+	}
+}
+
+func TestNewError(t *testing.T) {
+	tests := []struct {
+		name     string
+		error    string
+		expected *hms.Error
+	}{
+		{"Real Error Code", "1202_2100_0002_0003", &hms.Error{Attribute: 0x12022100, Code: 0x00020003}},
+		{"Invalid Error Code", "1202_0002_0003", nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, hms.NewError(tt.error))
 		})
 	}
 }
