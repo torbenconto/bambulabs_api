@@ -23,10 +23,11 @@ type Printer struct {
 	accessCode string
 	serial     string
 
-	mqttClient *mqtt.Client
-	ftpClient  *ftp.Client
+	mqttClient   *mqtt.Client
+	ftpClient    *ftp.Client
+	cameraClient *camera.Client
 
-	Camera *camera.Client
+	Camera *_commands.Camera
 	Lights *_commands.Lights
 	HMS    *_commands.HMS
 	Prints *_commands.Prints
@@ -51,24 +52,27 @@ func NewPrinter(config *PrinterConfig) *Printer {
 		AccessCode: config.AccessCode,
 	})
 
+	cameraClient := camera.NewClient(&camera.ClientConfig{
+		Hostname:   config.Host,
+		AccessCode: config.AccessCode,
+		Username:   "bblp",
+		Port:       6000,
+	})
+
 	return &Printer{
 		ipAddr:     config.Host,
 		accessCode: config.AccessCode,
 		serial:     config.SerialNumber,
 
-		mqttClient: mqttClient,
-		ftpClient:  ftpClient,
-		Camera: camera.NewClient(&camera.ClientConfig{
-			Hostname:   config.Host,
-			AccessCode: config.AccessCode,
-			Username:   "bblp",
-			Port:       6000,
-		}),
-		Lights: _commands.CreateLightsInstance(mqttClient),
-		HMS:    _commands.CreateHMSInstance(mqttClient),
-		Prints: _commands.CreatePrintsInstance(mqttClient),
-		Misc:   _commands.CreateMiscInstance(mqttClient),
-		FTP:    _commands.CreateFTPInstance(ftpClient),
+		mqttClient:   mqttClient,
+		ftpClient:    ftpClient,
+		cameraClient: cameraClient,
+		Camera:       _commands.CreateCameraInstance(cameraClient),
+		Lights:       _commands.CreateLightsInstance(mqttClient),
+		HMS:          _commands.CreateHMSInstance(mqttClient),
+		Prints:       _commands.CreatePrintsInstance(mqttClient),
+		Misc:         _commands.CreateMiscInstance(mqttClient),
+		FTP:          _commands.CreateFTPInstance(ftpClient),
 	}
 }
 
@@ -84,7 +88,7 @@ func (p *Printer) Connect() error {
 		return fmt.Errorf("ftpClient.Connect() error %w", err)
 	}
 
-	err = p.Camera.Connect()
+	err = p.cameraClient.Connect()
 	if err != nil {
 		return fmt.Errorf("cameraClient.Connect() error %w", err)
 	}
@@ -101,7 +105,7 @@ func (p *Printer) Disconnect() error {
 		return fmt.Errorf("ftpClient.Disconnect() error %w", err)
 	}
 
-	err = p.Camera.Disconnect()
+	err = p.cameraClient.Disconnect()
 	if err != nil {
 		return fmt.Errorf("cameraClient.Disconnect() error %w", err)
 	}
@@ -259,6 +263,6 @@ func (p *Printer) GetSerial() string {
 	return p.serial
 }
 
-//TODO: Load/Unload filament, AMS stuff, set filament, set bed height
+// TODO: Load/Unload filament, AMS stuff, set filament, set bed height
 
 //endregion
