@@ -2,7 +2,7 @@ package bambulabs_api
 
 import (
 	"fmt"
-  
+
 	_fan "github.com/torbenconto/bambulabs_api/fan"
 	"github.com/torbenconto/bambulabs_api/internal/camera"
 
@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-  "github.com/torbenconto/bambulabs_api/hms"
+	"github.com/torbenconto/bambulabs_api/hms"
 	"github.com/torbenconto/bambulabs_api/internal/ftp"
 	"github.com/torbenconto/bambulabs_api/internal/mqtt"
 	_light "github.com/torbenconto/bambulabs_api/light"
@@ -136,6 +136,13 @@ func (p *Printer) Data() (Data, error) {
 		NozzleTemperature:       data.Print.NozzleTemper,
 		Sdcard:                  data.Print.Sdcard,
 		WifiSignal:              data.Print.WifiSignal,
+	}
+
+	for _, light := range data.Print.LightsReport {
+		final.LightReport = append(final.LightReport, LightReport{
+			Node: _light.Light(light.Node),
+			Mode: _light.Mode(light.Mode),
+		})
 	}
 
 	colors := make([]color.RGBA, 0)
