@@ -4,15 +4,15 @@ type Light string
 
 const (
 	ChamberLight Light = "chamber_light"
-	PartLight    Light = "part_light"
+	WorkLight    Light = "work_light"
 )
 
 func (l Light) String() string {
 	switch l {
 	case ChamberLight:
 		return "Chamber light"
-	case PartLight:
-		return "Part light"
+	case WorkLight:
+		return "Work light"
 	default:
 		return "Unknown"
 	}
