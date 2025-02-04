@@ -1,4 +1,4 @@
-package bambulabs_api
+package utils
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func isValidGCode(line string) bool {
+func IsValidGCode(line string) bool {
 	line = strings.Split(line, ";")[0]
 	line = strings.TrimSpace(line)
 
@@ -29,7 +29,7 @@ func isValidGCode(line string) bool {
 }
 
 // https://stackoverflow.com/a/54200713
-func parseHexColorFast(s string) (c color.RGBA, err error) {
+func ParseHexColorFast(s string) (c color.RGBA, err error) {
 	// Remove the '#' if it's present
 	hex := strings.TrimPrefix(s, "#")
 	var r, g, b, a uint8

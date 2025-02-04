@@ -40,6 +40,7 @@ type Client struct {
 	messageChan chan []byte
 	doneChan    chan struct{}
 	ticker      *time.Ticker
+	onUpdate    func(Message)
 }
 
 // NewClient initializes a new MQTT client.
@@ -114,6 +115,21 @@ func (c *Client) Data() Message {
 		go c.update()
 	}
 	return c.data
+}
+
+// OnUpdate sets the callback function to be called on each update
+func (c *Client) OnUpdate(callback func(Message)) {
+	c.onUpdate = callback
+	go func() {
+		for {
+			select {
+			case <-c.doneChan:
+				return
+			case <-c.ticker.C:
+				callback(c.Data())
+			}
+		}
+	}()
 }
 
 // Private methods
@@ -197,6 +213,9 @@ func (c *Client) processPayload(payload []byte) {
 	defer c.mutex.Unlock()
 
 	mergeMessages(&c.data, &received)
+	if c.onUpdate != nil {
+		c.onUpdate(c.data)
+	}
 	//log.Printf("Updated data: %+v", c.data)
 }
 
