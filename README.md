@@ -58,7 +58,7 @@ Once you have the necessary details, you can create and connect to the printer w
 ```go
 // Replace the values below with the ones for your printer
 config := &bambulabs_api.PrinterConfig{
-    IP:           "192.168.1.200",
+    Host:           "192.168.1.200",
     AccessCode:   ACCESS_CODE,
     SerialNumber: SERIAL_NUMBER,
 }
@@ -78,8 +78,8 @@ pool := bambulabs_api.NewPrinterPool()
 Next, add printers to the pool using the AddPrinter method and passing in a config:
 ```go
 configs := []*PrinterConfig{
-    {IP: "192.168.1.200", SerialNumber: "M123ALE29D", AccessCode: "ODJ2j3"},
-    {IP: "192.168.1.201", SerialNumber: "M123ALE29E", AccessCode: "LDAdj3"},
+    {Host: "192.168.1.200", SerialNumber: "M123ALE29D", AccessCode: "ODJ2j3"},
+    {Host: "192.168.1.201", SerialNumber: "M123ALE29E", AccessCode: "LDAdj3"},
 }
 
 for _, config := range configs {
@@ -151,7 +151,7 @@ import (
 
 func main() {
 	config := &bambulabs_api.PrinterConfig{
-		IP:           "192.168.1.200",
+		Host:           "192.168.1.200",
 		AccessCode:   "00293KD0",
 		SerialNumber: "AC1029391BH109",
 	}
@@ -202,8 +202,8 @@ func main() {
     pool := bambulabs_api.NewPrinterPool()
 
     configs := []*bambulabs_api.PrinterConfig{
-        {IP: "192.168.1.200", SerialNumber: "M123ALE29D", AccessCode: "ODJ2j3"},
-        {IP: "192.168.1.201", SerialNumber: "M123ALE29E", AccessCode: "LDAdj3"},
+        {Host: "192.168.1.200", SerialNumber: "M123ALE29D", AccessCode: "ODJ2j3"},
+        {Host: "192.168.1.201", SerialNumber: "M123ALE29E", AccessCode: "LDAdj3"},
     }
 
     for _, config := range configs {

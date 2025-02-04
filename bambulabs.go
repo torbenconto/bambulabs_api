@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/torbenconto/bambulabs_api/internal/camera"
+	_light "github.com/torbenconto/bambulabs_api/light"
 	"github.com/torbenconto/bambulabs_api/utils"
 
 	"image/color"
@@ -25,7 +26,7 @@ type Printer struct {
 	mqttClient *mqtt.Client
 	ftpClient  *ftp.Client
 
-	Camera *camera.CameraClient
+	Camera *camera.Client
 	Lights *_commands.Lights
 	HMS    *_commands.HMS
 	Prints *_commands.Prints
@@ -57,9 +58,10 @@ func NewPrinter(config *PrinterConfig) *Printer {
 
 		mqttClient: mqttClient,
 		ftpClient:  ftpClient,
-		Camera: camera.NewCameraClient(&camera.ClientConfig{
+		Camera: camera.NewClient(&camera.ClientConfig{
 			Hostname:   config.Host,
 			AccessCode: config.AccessCode,
+			Username:   "bblp",
 			Port:       6000,
 		}),
 		Lights: _commands.CreateLightsInstance(mqttClient),
@@ -82,14 +84,26 @@ func (p *Printer) Connect() error {
 		return fmt.Errorf("ftpClient.Connect() error %w", err)
 	}
 
+	err = p.Camera.Connect()
+	if err != nil {
+		return fmt.Errorf("cameraClient.Connect() error %w", err)
+	}
+
 	return nil
 }
 
 // Disconnect disconnects from the underlying clients
 func (p *Printer) Disconnect() error {
 	p.mqttClient.Disconnect()
-	if err := p.ftpClient.Disconnect(); err != nil {
+
+	err := p.ftpClient.Disconnect()
+	if err != nil {
 		return fmt.Errorf("ftpClient.Disconnect() error %w", err)
+	}
+
+	err = p.Camera.Disconnect()
+	if err != nil {
+		return fmt.Errorf("cameraClient.Disconnect() error %w", err)
 	}
 
 	return nil
@@ -135,6 +149,13 @@ func (p *Printer) Data() (Data, error) {
 		Sdcard:                  data.Print.Sdcard,
 		WifiSignal:              data.Print.WifiSignal,
 	}
+
+	for _, light := range data.Print.LightsReport {
+		final.LightReport = append(final.LightReport, LightReport{
+			Node: _light.Light(light.Node),
+			Mode: _light.Mode(light.Mode),
+		})
+	} // TODO: Transfer this to Commands
 
 	colors := make([]color.RGBA, 0)
 	for _, col := range data.Print.VtTray.Cols {
@@ -239,3 +260,5 @@ func (p *Printer) GetSerial() string {
 }
 
 //TODO: Load/Unload filament, AMS stuff, set filament, set bed height
+
+//endregion

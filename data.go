@@ -1,6 +1,7 @@
 package bambulabs_api
 
 import (
+	_light "github.com/torbenconto/bambulabs_api/light"
 	"image/color"
 	"reflect"
 
@@ -30,6 +31,11 @@ type Ams struct {
 	Trays       []Tray  `json:"trays"`       // List of trays in the Ams
 }
 
+type LightReport struct {
+	Node _light.Light
+	Mode _light.Mode
+}
+
 type Data struct {
 	Ams                     []Ams            `json:"ams"`                        // List of Ams objects
 	AmsExists               bool             `json:"ams_exists"`                 // Whether an Ams is connected
@@ -51,12 +57,13 @@ type Data struct {
 	NozzleTargetTemperature float64          `json:"nozzle_target_temperature"`  // Target nozzle temperature (°C)
 	NozzleTemperature       float64          `json:"nozzle_temperature"`         // Current nozzle temperature (°C)
 	Sdcard                  bool             `json:"sdcard"`                     // Whether an SD card is inserted
+	LightReport             []LightReport    `json:"lights_report"`              // Light report
 	VtTray                  Tray             `json:"vt_tray"`                    // Built-in tray for use without Ams
 	WifiSignal              string           `json:"wifi_signal"`                // Wi-Fi signal strength in dBm
 }
 
 // IsEmpty checks if the Data struct is empty using reflection
-func (d Data) IsEmpty() bool {
+func (d *Data) IsEmpty() bool {
 	dataValue := reflect.ValueOf(d).Elem()
 	for i := 0; i < dataValue.NumField(); i++ {
 		field := dataValue.Field(i)
