@@ -48,6 +48,22 @@ type Error struct {
 	Code      int `json:"code"`
 }
 
+func NewError(code string) *Error {
+	var attrHigh, attrLow, codeHigh, codeLow int
+	_, err := fmt.Sscanf(code, "%04X_%04X_%04X_%04X", &attrHigh, &attrLow, &codeHigh, &codeLow)
+	if err != nil {
+		return nil // Return nil if parsing fails
+	}
+
+	attribute := (attrHigh << 16) | attrLow
+	parsedCode := (codeHigh << 16) | codeLow
+
+	return &Error{
+		Attribute: attribute,
+		Code:      parsedCode,
+	}
+}
+
 func (e Error) GetSeverity() Severity {
 	uint_code := e.Code >> 16
 	if e.Code > 0 {
