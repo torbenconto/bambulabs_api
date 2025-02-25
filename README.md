@@ -2,7 +2,7 @@
     <picture>
       <source srcset="https://raw.githubusercontent.com/torbenconto/bambulabs_api/refs/heads/master/assets/Logo-light.svg" media="(prefers-color-scheme: dark)">
       <source srcset="https://raw.githubusercontent.com/torbenconto/bambulabs_api/refs/heads/master/assets/Logo-dark.svg" media="(prefers-color-scheme: light)">
-      <img src="https://raw.githubusercontent.com/torbenconto/bambulabs_api/refs/heads/master/assets/Logo-dark.svg" alt="Logo">
+      <img src="https://raw.githubusercontent.com/torbenconto/bambulabs_api/refs/heads/master/assets/Logo-light.svg" alt="Logo">
     </picture>
 
 <h1>Bambulabs API Golang Library</h1>
