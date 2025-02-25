@@ -1,8 +1,8 @@
 <div align="center">
     <picture>
-      <source srcset="assets/Logo-light.svg" media="(prefers-color-scheme: dark)">
-      <source srcset="assets/Logo-dark.svg" media="(prefers-color-scheme: light)">
-      <img src="assets/Logo-dark.svg" alt="Logo">
+      <source srcset="https://github.com/torbenconto/bambulabs_api/blob/master/assets/Logo-light.svg" media="(prefers-color-scheme: dark)">
+      <source srcset="https://github.com/torbenconto/bambulabs_api/blob/master/assets/Logo-dark.svg" media="(prefers-color-scheme: light)">
+      <img src="https://github.com/torbenconto/bambulabs_api/blob/master/assets/Logo-dark.svg" alt="Logo">
     </picture>
 
 <h1>Bambulabs API Golang Library</h1>
