@@ -121,3 +121,23 @@ func (p *Misc) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellation
 
 	return nil
 }
+
+func (p *Misc) LoadFilament() error {
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("load_filament")
+
+	if err := p.mqttClient.Publish(command); err != nil {
+		return fmt.Errorf("Error loading filament")
+	}
+
+	return nil
+}
+
+func (p *Misc) UnloadFilament() error {
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("unload_filament")
+
+	if err := p.mqttClient.Publish(command); err != nil {
+		return fmt.Errorf("Error unloading filament")
+	}
+
+	return nil
+}
