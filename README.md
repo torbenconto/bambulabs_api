@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/torbenconto/bambulabs_api/refs/heads/master/assets/Logo-dark.svg" alt="Logo">
+<img src="./assets/Logo-boxed.svg" alt="Logo">
 
 <h1>Bambulabs API Golang Library</h1>
 </div>
