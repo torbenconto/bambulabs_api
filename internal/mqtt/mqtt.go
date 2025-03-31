@@ -44,6 +44,7 @@ type Client struct {
 
 // NewClient initializes a new MQTT client.
 func NewClient(config *ClientConfig) *Client {
+	// Need to add an option to set OrderMatters for this
 	opts := paho.NewClientOptions().
 		AddBroker(fmt.Sprintf("mqtts://%s:%d", config.Host, config.Port)).
 		SetClientID(clientID).
