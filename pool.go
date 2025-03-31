@@ -8,6 +8,9 @@ import (
 type PrinterPool struct {
 	mu       sync.Mutex
 	printers sync.Map
+
+	// List of serial numbers in the order they were added, used for sequential operations where order matters
+	order []string
 }
 
 func NewPrinterPool() *PrinterPool {
@@ -18,7 +21,6 @@ func (p *PrinterPool) ConnectAll() error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, 100)
 
-	p.mu.Lock()
 	p.printers.Range(func(_, value interface{}) bool {
 		printer, ok := value.(*Printer)
 		if !ok {
@@ -36,7 +38,6 @@ func (p *PrinterPool) ConnectAll() error {
 
 		return true
 	})
-	p.mu.Unlock()
 
 	wg.Wait()
 	close(errChan)
@@ -57,7 +58,6 @@ func (p *PrinterPool) DisconnectAll() error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, 100)
 
-	p.mu.Lock()
 	p.printers.Range(func(_, value interface{}) bool {
 		printer, ok := value.(*Printer)
 		if !ok {
@@ -73,7 +73,6 @@ func (p *PrinterPool) DisconnectAll() error {
 		}(printer)
 		return true
 	})
-	p.mu.Unlock()
 
 	wg.Wait()
 	close(errChan)
@@ -97,12 +96,10 @@ func (p *PrinterPool) AddPrinter(config *PrinterConfig) {
 	printer := NewPrinter(config)
 
 	p.printers.Store(config.SerialNumber, printer)
+	p.order = append(p.order, config.SerialNumber)
 }
 
 func (p *PrinterPool) GetPrinters() []*Printer {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	var printers []*Printer
 
 	p.printers.Range(func(_, value interface{}) bool {
@@ -125,7 +122,6 @@ func (p *PrinterPool) ExecuteAll(operation func(*Printer) error) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, 100)
 
-	p.mu.Lock()
 	p.printers.Range(func(_, value interface{}) bool {
 		printer, ok := value.(*Printer)
 		if !ok {
@@ -141,7 +137,6 @@ func (p *PrinterPool) ExecuteAll(operation func(*Printer) error) error {
 		}(printer)
 		return true
 	})
-	p.mu.Unlock()
 
 	wg.Wait()
 	close(errChan)
@@ -158,13 +153,40 @@ func (p *PrinterPool) ExecuteAll(operation func(*Printer) error) error {
 	return result
 }
 
+// ExecuteAllSequentially performs a printer operation on all printers in the pool sequentially.
+// This is useful for operations that need to be performed in a specific order such as a light show or any operation based on physical constraints.
+func (p *PrinterPool) ExecuteAllSequentially(operation func(*Printer) error) error {
+	// Lock for consistency of the order slice
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	var result error
+
+	for _, serial := range p.order {
+		printerInterface, ok := p.printers.Load(serial)
+		if !ok {
+			continue
+		}
+		printer, ok := printerInterface.(*Printer)
+		if !ok {
+			continue
+		}
+
+		if err := operation(printer); err != nil {
+			result = fmt.Errorf("operation on printer %s error: %w", printer.serial, err)
+			break
+		}
+	}
+
+	return result
+}
+
 // DataAll collects data from all printers in the pool and returns it as a map where the serial number of a printer is the key and maps to a reference to it's data.
 func (p *PrinterPool) DataAll() (map[string]*Data, error) {
 	var wg sync.WaitGroup
 	result := sync.Map{}
 	errCh := make(chan error, 100)
 
-	p.mu.Lock()
 	p.printers.Range(func(_, value interface{}) bool {
 		printer, ok := value.(*Printer)
 		if !ok {
@@ -185,7 +207,6 @@ func (p *PrinterPool) DataAll() (map[string]*Data, error) {
 		}(printer)
 		return true
 	})
-	p.mu.Unlock()
 
 	wg.Wait()
 	close(errCh)
