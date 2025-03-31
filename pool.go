@@ -18,6 +18,7 @@ func (p *PrinterPool) ConnectAll() error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, 100)
 
+	p.mu.Lock()
 	p.printers.Range(func(_, value interface{}) bool {
 		printer, ok := value.(*Printer)
 		if !ok {
@@ -35,6 +36,7 @@ func (p *PrinterPool) ConnectAll() error {
 
 		return true
 	})
+	p.mu.Unlock()
 
 	wg.Wait()
 	close(errChan)
@@ -55,6 +57,7 @@ func (p *PrinterPool) DisconnectAll() error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, 100)
 
+	p.mu.Lock()
 	p.printers.Range(func(_, value interface{}) bool {
 		printer, ok := value.(*Printer)
 		if !ok {
@@ -70,6 +73,7 @@ func (p *PrinterPool) DisconnectAll() error {
 		}(printer)
 		return true
 	})
+	p.mu.Unlock()
 
 	wg.Wait()
 	close(errChan)
@@ -87,18 +91,18 @@ func (p *PrinterPool) DisconnectAll() error {
 }
 
 func (p *PrinterPool) AddPrinter(config *PrinterConfig) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	printer := NewPrinter(config)
 
 	p.printers.Store(config.SerialNumber, printer)
 }
 
-func (p *PrinterPool) GetPrinter(serialNumber string) *Printer {
-	printer, _ := p.printers.Load(serialNumber)
-
-	return printer.(*Printer)
-}
-
 func (p *PrinterPool) GetPrinters() []*Printer {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	var printers []*Printer
 
 	p.printers.Range(func(_, value interface{}) bool {
@@ -110,6 +114,9 @@ func (p *PrinterPool) GetPrinters() []*Printer {
 }
 
 func (p *PrinterPool) RemovePrinter(serialNumber string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	p.printers.Delete(serialNumber)
 }
 
@@ -118,6 +125,7 @@ func (p *PrinterPool) ExecuteAll(operation func(*Printer) error) error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, 100)
 
+	p.mu.Lock()
 	p.printers.Range(func(_, value interface{}) bool {
 		printer, ok := value.(*Printer)
 		if !ok {
@@ -133,6 +141,7 @@ func (p *PrinterPool) ExecuteAll(operation func(*Printer) error) error {
 		}(printer)
 		return true
 	})
+	p.mu.Unlock()
 
 	wg.Wait()
 	close(errChan)
@@ -155,6 +164,7 @@ func (p *PrinterPool) DataAll() (map[string]*Data, error) {
 	result := sync.Map{}
 	errCh := make(chan error, 100)
 
+	p.mu.Lock()
 	p.printers.Range(func(_, value interface{}) bool {
 		printer, ok := value.(*Printer)
 		if !ok {
@@ -175,6 +185,7 @@ func (p *PrinterPool) DataAll() (map[string]*Data, error) {
 		}(printer)
 		return true
 	})
+	p.mu.Unlock()
 
 	wg.Wait()
 	close(errCh)
@@ -202,6 +213,9 @@ func (p *PrinterPool) DataAll() (map[string]*Data, error) {
 
 // At retrieves a printer by its serial number.
 func (p *PrinterPool) At(serial string) (*Printer, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	var printer *Printer
 	var found bool
 
