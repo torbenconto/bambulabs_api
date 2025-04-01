@@ -6,7 +6,6 @@ import (
 )
 
 type PrinterPool struct {
-	mu       sync.Mutex
 	printers sync.Map
 
 	// List of serial numbers in the order they were added, used for sequential operations where order matters
@@ -90,9 +89,6 @@ func (p *PrinterPool) DisconnectAll() error {
 }
 
 func (p *PrinterPool) AddPrinter(config *PrinterConfig) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	printer := NewPrinter(config)
 
 	p.printers.Store(config.SerialNumber, printer)
@@ -111,10 +107,15 @@ func (p *PrinterPool) GetPrinters() []*Printer {
 }
 
 func (p *PrinterPool) RemovePrinter(serialNumber string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	p.printers.Delete(serialNumber)
+
+	// Remove the serial number from the order slice
+	for i, serial := range p.order {
+		if serial == serialNumber {
+			p.order = append(p.order[:i], p.order[i+1:]...)
+			break
+		}
+	}
 }
 
 // ExecuteAll performs a printer operation on all printers in the pool concurrently.
@@ -156,10 +157,6 @@ func (p *PrinterPool) ExecuteAll(operation func(*Printer) error) error {
 // ExecuteAllSequentially performs a printer operation on all printers in the pool sequentially.
 // This is useful for operations that need to be performed in a specific order such as a light show or any operation based on physical constraints.
 func (p *PrinterPool) ExecuteAllSequentially(operation func(*Printer) error) error {
-	// Lock for consistency of the order slice
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	var result error
 
 	for _, serial := range p.order {
@@ -181,7 +178,7 @@ func (p *PrinterPool) ExecuteAllSequentially(operation func(*Printer) error) err
 	return result
 }
 
-// DataAll collects data from all printers in the pool and returns it as a map where the serial number of a printer is the key and maps to a reference to it's data.
+// DataAll collects data from all printers in the pool and returns it as a map where the serial number of a printer is the key and maps to a reference to its data.
 func (p *PrinterPool) DataAll() (map[string]*Data, error) {
 	var wg sync.WaitGroup
 	result := sync.Map{}
@@ -234,22 +231,14 @@ func (p *PrinterPool) DataAll() (map[string]*Data, error) {
 
 // At retrieves a printer by its serial number.
 func (p *PrinterPool) At(serial string) (*Printer, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	var printer *Printer
-	var found bool
-
-	p.printers.Range(func(key, value interface{}) bool {
-		if key == serial {
-			printer, found = value.(*Printer)
-			return false
-		}
-		return true
-	})
-
-	if !found {
+	printerInterface, ok := p.printers.Load(serial)
+	if !ok {
 		return nil, fmt.Errorf("printer with serial %s not found", serial)
+	}
+
+	printer, ok := printerInterface.(*Printer)
+	if !ok {
+		return nil, fmt.Errorf("invalid printer type for serial %s", serial)
 	}
 
 	return printer, nil
