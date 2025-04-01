@@ -71,10 +71,10 @@ func (p *Printer) Connect() error {
 		return fmt.Errorf("ftpClient.Connect() error %w", err)
 	}
 
-	err = p.cameraClient.Connect()
-	if err != nil {
-		return fmt.Errorf("cameraClient.Connect() error %w", err)
-	}
+	// err = p.cameraClient.Connect()
+	// if err != nil {
+	// 	return fmt.Errorf("cameraClient.Connect() error %w", err)
+	// }
 
 	return nil
 }
