@@ -17,75 +17,27 @@ func NewPrinterPool() *PrinterPool {
 }
 
 func (p *PrinterPool) ConnectAll() error {
-	var wg sync.WaitGroup
-	errChan := make(chan error, 100)
-
-	p.printers.Range(func(_, value interface{}) bool {
-		printer, ok := value.(*Printer)
-		if !ok {
-			return false
-		}
-
-		wg.Add(1)
-		go func(p *Printer) {
-			defer wg.Done()
-			err := p.Connect()
-			if err != nil {
-				errChan <- fmt.Errorf("failed to connect to printer %s: %w", p.serial, err)
-			}
-		}(printer)
-
-		return true
+	return p.ExecuteAll(func(printer *Printer) error {
+		return printer.Connect()
 	})
+}
 
-	wg.Wait()
-	close(errChan)
-
-	var result error
-	for err := range errChan {
-		if result == nil {
-			result = err
-		} else {
-			result = fmt.Errorf("%v; %w", result, err)
-		}
-	}
-
-	return result
+func (p *PrinterPool) ConnectAllCamera() error {
+	return p.ExecuteAll(func(printer *Printer) error {
+		return printer.ConnectCamera()
+	})
 }
 
 func (p *PrinterPool) DisconnectAll() error {
-	var wg sync.WaitGroup
-	errChan := make(chan error, 100)
-
-	p.printers.Range(func(_, value interface{}) bool {
-		printer, ok := value.(*Printer)
-		if !ok {
-			return false
-		}
-
-		wg.Add(1)
-		go func(p *Printer) {
-			defer wg.Done()
-			if err := p.Disconnect(); err != nil {
-				errChan <- fmt.Errorf("printer %s disconnect error: %w", p.serial, err)
-			}
-		}(printer)
-		return true
+	return p.ExecuteAll(func(printer *Printer) error {
+		return printer.Disconnect()
 	})
+}
 
-	wg.Wait()
-	close(errChan)
-
-	var result error
-	for err := range errChan {
-		if result == nil {
-			result = err
-		} else {
-			result = fmt.Errorf("%v; %w", result, err)
-		}
-	}
-
-	return result
+func (p *PrinterPool) DisconnectAllCamera() error {
+	return p.ExecuteAll(func(printer *Printer) error {
+		return printer.DisconnectCamera()
+	})
 }
 
 func (p *PrinterPool) AddPrinter(config *PrinterConfig) {

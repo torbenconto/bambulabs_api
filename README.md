@@ -6,7 +6,7 @@
 </div>
 
 > [!IMPORTANT]
-> This app is still in development. Consider [starring the repository](https://docs.github.com/en/get-started/exploring-projects-on-github/saving-repositories-with-stars) to show your support.
+> This library is still in development. Consider [starring the repository](https://docs.github.com/en/get-started/exploring-projects-on-github/saving-repositories-with-stars) to show your support.
 
 This repository provides a **Golang** library to interface with **Bambulabs 3D printers** via network protocols. It allows easy integration of Bambulabs printers into your Go applications, providing access to printer data, control over printer features, and more.
 
@@ -20,6 +20,8 @@ This project does not support the bambulabs cloud api, but it's sister project [
 
 - [Installation](#installation)
 - [Connecting to a Printer](#connecting-to-a-printer)
+- [Managing Multiple Printers](#managing-multiple-printers)
+- [Camera Access](#camera-access)
 - [Basic Examples](#basic-examples)
 - [Development](#development)
 - [Contributing](#contributing)
@@ -65,6 +67,9 @@ if err != nil {
     panic(err)
 }
 ```
+
+The `Connect()` method establishes a connection through MQTT alongside opening an FTP connection to the printer. This allows you to interact with the printer and retrieve data.
+For camera connections, see the [Camera Access](#camera-access) section.
 
 ## Managing Multiple Printers
 The PrinterPool is a concurrent, thread-safe structure designed to manage multiple printers in a pool. It allows you to interact with the printers by serial number, retrieve their status or data, and perform operations on them, all while handling multiple printers concurrently.
@@ -130,6 +135,51 @@ if err != nil {
     panic(err)
 }
 ```
+
+
+## Camera Access
+The library also provides access to the camera of a printer. Right now it only supports the Bambu Labs P and A series printers.
+
+We have plans to add support for the X series printers in the near future through rtsps. The camera access is currently in development and may not be fully functional for all printer models.
+
+You must connect to the camera using the ConnectCamera method. This will establish a connection to the camera and allow you to access its features.
+
+```go
+err := printer.ConnectCamera()
+if err != nil {
+    panic(err)
+}
+```
+
+Once connected, you can use the Camera struct to access the camera features. The Camera struct provides methods for taking snapshots, recording videos, and accessing the camera stream.
+
+You can take a snapshot using the Capture method. This will capture a single frame from the camera and return it as a byte array.
+
+```go
+snapshot, err := printer.CaptureCameraFrame()
+if err != nil {
+    panic(err)
+}
+```
+
+You can also record a video using the StartCameraStream method. This will start recording a video from the camera and return a byte array containing the video data.
+
+```go
+video, err := printer.StartCameraStream()
+if err != nil {
+    panic(err)
+}
+```
+
+You can stop the camera stream using the StopCameraStream method. This will stop the recording and return the video data as a byte array.
+
+```go
+err := printer.StopCameraStream()
+if err != nil {
+    panic(err)
+}
+```
+
 
 ## Basic Examples
 
@@ -237,9 +287,11 @@ func main() {
 
 ## Development
 
-### Current Status: ALPHA
+### Current Status: FULL FUNCTIONALITY
+The library is currently in a stable state with full functionality. All major features have been implemented and tested across various Bambulabs printer models. However, there may still be some edge cases or specific features that require further testing and validation. Contributions are welcome to improve functionality and expand coverage.
 
-This library is in active development. While many features have been implemented, certain functions are not fully tested across all supported devices. Contributions are welcome to improve functionality and expand coverage.
+## Cool projects using this library
+- [Bambu Lightshow](https://github.com/TrippHopkins/Bambu-Light-Show)
 
 ## Contributing
 

@@ -79,6 +79,15 @@ func (p *Printer) Connect() error {
 	return nil
 }
 
+func (p *Printer) ConnectCamera() error {
+	err := p.cameraClient.Connect()
+	if err != nil {
+		return fmt.Errorf("cameraClient.Connect() error %w", err)
+	}
+
+	return nil
+}
+
 // Disconnect disconnects from the underlying clients
 func (p *Printer) Disconnect() error {
 	p.mqttClient.Disconnect()
@@ -92,6 +101,15 @@ func (p *Printer) Disconnect() error {
 	// if err != nil {
 	// 	return fmt.Errorf("cameraClient.Disconnect() error %w", err)
 	// }
+
+	return nil
+}
+
+func (p *Printer) DisconnectCamera() error {
+	err := p.cameraClient.Disconnect()
+	if err != nil {
+		return fmt.Errorf("cameraClient.Disconnect() error %w", err)
+	}
 
 	return nil
 }
