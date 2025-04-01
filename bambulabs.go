@@ -88,10 +88,10 @@ func (p *Printer) Disconnect() error {
 		return fmt.Errorf("ftpClient.Disconnect() error %w", err)
 	}
 
-	err = p.cameraClient.Disconnect()
-	if err != nil {
-		return fmt.Errorf("cameraClient.Disconnect() error %w", err)
-	}
+	// err = p.cameraClient.Disconnect()
+	// if err != nil {
+	// 	return fmt.Errorf("cameraClient.Disconnect() error %w", err)
+	// }
 
 	return nil
 }
