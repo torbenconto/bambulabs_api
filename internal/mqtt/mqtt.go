@@ -12,6 +12,7 @@ import (
 	paho "github.com/eclipse/paho.mqtt.golang"
 )
 
+// TODO: Make these configurable
 const (
 	clientID       = "golang-bambulabs-api"
 	topicTemplate  = "device/%s/report"
