@@ -27,7 +27,7 @@ func NewCommand(msgType MessageType) *Command {
 		fields: make(map[string]interface{}),
 	}
 
-	return cmd.AddIdField(cmd.id)
+	return cmd.addIdField(cmd.id)
 
 }
 
@@ -52,7 +52,14 @@ func (c *Command) AddParamField(value interface{}) *Command {
 	return c
 }
 
-func (c *Command) AddIdField(id int) *Command {
+func (c *Command) addIdField(id int) *Command {
+	c.AddField("sequence_id", strconv.Itoa(id))
+
+	return c
+}
+
+func (c *Command) SetId(id int) *Command {
+	c.id = id
 	c.AddField("sequence_id", strconv.Itoa(id))
 
 	return c
