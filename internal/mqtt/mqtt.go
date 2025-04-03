@@ -38,7 +38,6 @@ type Client struct {
 	mutex       sync.Mutex
 	data        Message
 	lastUpdate  time.Time
-	sequenceID  int
 	messageChan chan []byte
 	doneChan    chan struct{}
 	ticker      *time.Ticker
@@ -60,7 +59,6 @@ func NewClient(config *ClientConfig) *Client {
 		config:      config,
 		messageChan: make(chan []byte, 200),
 		doneChan:    make(chan struct{}),
-		sequenceID:  0,
 		ticker:      time.NewTicker(updateInterval),
 	}
 
@@ -97,9 +95,6 @@ func (c *Client) Disconnect() {
 func (c *Client) Publish(command *Command) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-
-	c.sequenceID++
-	command.SetId(c.sequenceID)
 
 	rawCommand, err := command.JSON()
 	if err != nil {

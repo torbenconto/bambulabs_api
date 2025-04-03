@@ -2,7 +2,6 @@ package mqtt
 
 import (
 	"encoding/json"
-	"strconv"
 )
 
 type MessageType string
@@ -15,7 +14,7 @@ const (
 
 type Command struct {
 	Type MessageType
-	id   int
+	id   string
 
 	fields map[string]interface{}
 }
@@ -23,11 +22,11 @@ type Command struct {
 func NewCommand(msgType MessageType) *Command {
 	cmd := &Command{
 		Type:   msgType,
-		id:     0,
+		id:     "0",
 		fields: make(map[string]interface{}),
 	}
 
-	return cmd.addIdField(cmd.id)
+	return cmd.AddIdField(cmd.id)
 
 }
 
@@ -52,15 +51,8 @@ func (c *Command) AddParamField(value interface{}) *Command {
 	return c
 }
 
-func (c *Command) addIdField(id int) *Command {
-	c.AddField("sequence_id", strconv.Itoa(id))
-
-	return c
-}
-
-func (c *Command) SetId(id int) *Command {
-	c.id = id
-	c.AddField("sequence_id", strconv.Itoa(id))
+func (c *Command) AddIdField(id string) *Command {
+	c.AddField("sequence_id", id)
 
 	return c
 }
