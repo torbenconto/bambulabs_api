@@ -2,8 +2,10 @@ package mqtt
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
+	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewCommand(t *testing.T) {
@@ -22,6 +24,13 @@ func TestCommand_AddParamField(t *testing.T) {
 	cmd := NewCommand(Print)
 	cmd.AddParamField("value")
 	assert.Equal(t, "value", cmd.fields["param"])
+}
+
+func TestCommand_SetId(t *testing.T) {
+	cmd := NewCommand(Print)
+	cmd.SetId(123)
+	assert.Equal(t, "123", cmd.fields["sequence_id"])
+	assert.Equal(t, "123", strconv.Itoa(cmd.id))
 }
 
 func TestCommand_JSON(t *testing.T) {
