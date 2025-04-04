@@ -111,17 +111,29 @@ func (p *PrinterPool) ExecuteOnN(operation func(*Printer) error, n []int) error 
 		return fmt.Errorf("no printers selected")
 	}
 
-	allPrinters := p.GetPrinters()
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(n))
+	var printers []*Printer
 
 	for _, idx := range n {
-		if idx < 0 || idx >= len(allPrinters) {
+		if idx < 0 || idx >= len(p.order) {
 			return fmt.Errorf("index %d out of range", idx)
 		}
 
-		printer := allPrinters[idx]
+		serial := p.order[idx]
+		printerInterface, ok := p.printers.Load(serial)
+		if !ok {
+			return fmt.Errorf("printer with serial %s not found", serial)
+		}
+		printer, ok := printerInterface.(*Printer)
+		if !ok {
+			return fmt.Errorf("invalid printer type for serial %s", serial)
+		}
+		printers = append(printers, printer)
+	}
 
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(printers))
+
+	for _, printer := range printers {
 		wg.Add(1)
 		go func(p *Printer) {
 			defer wg.Done()
@@ -152,15 +164,26 @@ func (p *PrinterPool) ExecuteOnNSequentially(operation func(*Printer) error, n [
 		return fmt.Errorf("no printer selected")
 	}
 
-	allPrinters := p.GetPrinters()
+	if len(p.order) == 0 {
+		return fmt.Errorf("printer order is empty")
+	}
 
 	var result error
 
-	for _, i := range n {
-		if i < 0 || i >= len(allPrinters) {
-			return fmt.Errorf("index %d out of range", i)
+	for _, idx := range n {
+		if idx < 0 || idx >= len(p.order) {
+			return fmt.Errorf("index %d out of range", idx)
 		}
-		printer := allPrinters[i]
+
+		serial := p.order[idx]
+		printerInterface, ok := p.printers.Load(serial)
+		if !ok {
+			return fmt.Errorf("printer with serial %s not found", serial)
+		}
+		printer, ok := printerInterface.(*Printer)
+		if !ok {
+			return fmt.Errorf("invalid printer type for serial %s", serial)
+		}
 
 		if err := operation(printer); err != nil {
 			result = fmt.Errorf("operation on printer %s error: %w", printer.serial, err)
