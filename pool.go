@@ -106,6 +106,72 @@ func (p *PrinterPool) ExecuteAll(operation func(*Printer) error) error {
 	return result
 }
 
+// ExecuteOnN performs a printer operation on a subset of printers in the pool concurrently.
+func (p *PrinterPool) ExecuteOnN(operation func(*Printer) error, n []int) error {
+	if len(n) == 0 {
+		return fmt.Errorf("no printer selected")
+	}
+
+	allPrinters := p.GetPrinters()
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(n))
+
+	for _, i := range n {
+		if i < 0 || i >= len(allPrinters) {
+			return fmt.Errorf("index %d out of range", i)
+		}
+		printer := allPrinters[i]
+
+		wg.Add(1)
+		go func(p *Printer) {
+			defer wg.Done()
+			if err := operation(p); err != nil {
+				errChan <- fmt.Errorf("operation on printer %s error: %w", p.serial, err)
+			}
+		}(printer)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	var result error
+	for err := range errChan {
+		if result == nil {
+			result = err
+		} else {
+			result = fmt.Errorf("%v; %w", result, err)
+		}
+	}
+
+	return result
+}
+
+// ExecuteOnNSequentially performs a printer operation on a subset of printers in the pool sequentially.
+func (p *PrinterPool) ExecuteOnNSequentially(operation func(*Printer) error, n []int) error {
+	if len(n) == 0 {
+		return fmt.Errorf("no printer selected")
+	}
+
+	allPrinters := p.GetPrinters()
+
+	var result error
+
+	for _, i := range n {
+		if i < 0 || i >= len(allPrinters) {
+			return fmt.Errorf("index %d out of range", i)
+		}
+		printer := allPrinters[i]
+
+		if err := operation(printer); err != nil {
+			result = fmt.Errorf("operation on printer %s error: %w", printer.serial, err)
+			break
+		}
+	}
+
+	return result
+}
+
 // ExecuteAllSequentially performs a printer operation on all printers in the pool sequentially.
 // This is useful for operations that need to be performed in a specific order such as a light show or any operation based on physical constraints.
 func (p *PrinterPool) ExecuteAllSequentially(operation func(*Printer) error) error {
