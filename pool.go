@@ -106,22 +106,21 @@ func (p *PrinterPool) ExecuteAll(operation func(*Printer) error) error {
 	return result
 }
 
-// ExecuteOnN performs a printer operation on a subset of printers in the pool concurrently.
 func (p *PrinterPool) ExecuteOnN(operation func(*Printer) error, n []int) error {
 	if len(n) == 0 {
-		return fmt.Errorf("no printer selected")
+		return fmt.Errorf("no printers selected")
 	}
 
 	allPrinters := p.GetPrinters()
-
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(n))
 
-	for _, i := range n {
-		if i < 0 || i >= len(allPrinters) {
-			return fmt.Errorf("index %d out of range", i)
+	for _, idx := range n {
+		if idx < 0 || idx >= len(allPrinters) {
+			return fmt.Errorf("index %d out of range", idx)
 		}
-		printer := allPrinters[i]
+
+		printer := allPrinters[idx]
 
 		wg.Add(1)
 		go func(p *Printer) {
