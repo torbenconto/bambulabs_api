@@ -475,7 +475,17 @@ func (p *Printer) SetBedTemperatureAndWaitUntilReached(temperature int) error {
 
 // SetBedHeight sets the bed height to a specified number in millimeters using a gcode command.
 func (p *Printer) SetBedHeight(z int) error {
-	return p.SendGcode([]string{fmt.Sprintf("G28 Z%d", z)})
+	return p.SendGcode([]string{fmt.Sprintf("G1 Z%d", z)})
+}
+
+// IncreaseBedHeight increases the bed height by a specified number in millimeters using a gcode command.
+func (p *Printer) IncreaseBedHeight(z int) error {
+	return p.SendGcode([]string{fmt.Sprintf("G1 Z+%d", z)})
+}
+
+// DecreaseBedHeight decreases the bed height by a specified number in millimeters using a gcode command.
+func (p *Printer) DecreaseBedHeight(z int) error {
+	return p.SendGcode([]string{fmt.Sprintf("G1 Z-%d", z)})
 }
 
 // SetFanSpeed sets the speed of fan to a speed between 0-255.
