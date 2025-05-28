@@ -131,8 +131,6 @@ func (c *Client) update() {
 
 	c.lastUpdate = time.Now()
 	command := NewCommand(Pushing).AddCommandField("pushall")
-	js, _ := command.JSON()
-	fmt.Println("command", js)
 	if err := c.Publish(command); err != nil {
 		log.Printf("Failed to publish update command: %v", err)
 	}
