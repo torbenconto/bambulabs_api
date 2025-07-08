@@ -402,11 +402,33 @@ func (p *Printer) SetBedTemperature(temperature int) error {
 	return nil
 }
 
+func (p *Printer) SetBedTemperatureAndWaitUntilReached(temperature int) error {
+	p.logger.Info("Setting bed temperature and waiting until reached", "temperature", temperature)
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M190 S%d", temperature))
+	if err := p.mqttClient.Publish(command); err != nil {
+		p.logger.Error("Failed to set bed temperature and wait until reached", "error", err)
+		return fmt.Errorf("error setting bed temperature: %w", err)
+	}
+	p.logger.Info("Bed temperature set successfully", "temperature", temperature)
+	return nil
+}
+
 func (p *Printer) SetNozzleTemperature(temperature int) error {
 	p.logger.Info("Setting nozzle temperature", "temperature", temperature)
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M104 S%d", temperature))
 	if err := p.mqttClient.Publish(command); err != nil {
 		p.logger.Error("Failed to set nozzle temperature", "error", err)
+		return fmt.Errorf("error setting nozzle temperature: %w", err)
+	}
+	p.logger.Info("Nozzle temperature set successfully", "temperature", temperature)
+	return nil
+}
+
+func (p *Printer) SetNozzleTemperatureAndWaitUntilReached(temperature int) error {
+	p.logger.Info("Setting nozzle temperature and waiting until reached", "temperature", temperature)
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M109 S%d", temperature))
+	if err := p.mqttClient.Publish(command); err != nil {
+		p.logger.Error("Failed to set nozzle temperature and wait until reached", "error", err)
 		return fmt.Errorf("error setting nozzle temperature: %w", err)
 	}
 	p.logger.Info("Nozzle temperature set successfully", "temperature", temperature)
