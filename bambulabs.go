@@ -2,40 +2,46 @@ package bambulabs_api
 
 import (
 	"fmt"
-
-	_fan "github.com/torbenconto/bambulabs_api/fan"
-	"github.com/torbenconto/bambulabs_api/internal/camera"
-
 	"image/color"
+	"log/slog"
 	"os"
 	"strconv"
 	"time"
 
+	_fan "github.com/torbenconto/bambulabs_api/fan"
 	"github.com/torbenconto/bambulabs_api/hms"
+	"github.com/torbenconto/bambulabs_api/internal/camera"
 	"github.com/torbenconto/bambulabs_api/internal/ftp"
 	"github.com/torbenconto/bambulabs_api/internal/mqtt"
 	_light "github.com/torbenconto/bambulabs_api/light"
 	_printspeed "github.com/torbenconto/bambulabs_api/printspeed"
-
 	"github.com/torbenconto/bambulabs_api/state"
 )
 
 type Printer struct {
-	ipAddr     string
-	accessCode string
-	serial     string
-
+	ipAddr       string
+	accessCode   string
+	serial       string
 	mqttClient   *mqtt.Client
 	ftpClient    *ftp.Client
 	cameraClient *camera.Client
+	logger       *slog.Logger
 }
 
 func NewPrinter(config *PrinterConfig) *Printer {
+	logger := config.Logger
+	if logger == nil {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		}))
+	}
+	logger.Info("Initializing printer", "host", config.Host, "serial", config.SerialNumber)
+
 	return &Printer{
 		ipAddr:     config.Host,
 		accessCode: config.AccessCode,
 		serial:     config.SerialNumber,
-
+		logger:     logger,
 		mqttClient: mqtt.NewClient(&mqtt.ClientConfig{
 			Host:       config.Host,
 			Port:       8883,
@@ -59,58 +65,48 @@ func NewPrinter(config *PrinterConfig) *Printer {
 	}
 }
 
-// Connect connects to the underlying clients.
 func (p *Printer) Connect() error {
-	err := p.mqttClient.Connect()
-	if err != nil {
+	p.logger.Info("Connecting to printer", "serial", p.serial)
+	if err := p.mqttClient.Connect(); err != nil {
+		p.logger.Error("Failed to connect MQTT", "error", err)
 		return fmt.Errorf("mqttClient.Connect() error %w", err)
 	}
-
-	err = p.ftpClient.Connect()
-	if err != nil {
+	if err := p.ftpClient.Connect(); err != nil {
+		p.logger.Error("Failed to connect FTP", "error", err)
 		return fmt.Errorf("ftpClient.Connect() error %w", err)
 	}
+	p.logger.Info("Printer connected successfully")
+	return nil
+}
 
-	// err = p.cameraClient.Connect()
-	// if err != nil {
-	// 	return fmt.Errorf("cameraClient.Connect() error %w", err)
-	// }
-
+func (p *Printer) Disconnect() error {
+	p.logger.Info("Disconnecting from printer", "serial", p.serial)
+	p.mqttClient.Disconnect()
+	if err := p.ftpClient.Disconnect(); err != nil {
+		p.logger.Error("Failed to disconnect FTP", "error", err)
+		return fmt.Errorf("ftpClient.Disconnect() error %w", err)
+	}
+	p.logger.Info("Printer disconnected")
 	return nil
 }
 
 func (p *Printer) ConnectCamera() error {
-	err := p.cameraClient.Connect()
-	if err != nil {
+	p.logger.Info("Connecting to camera")
+	if err := p.cameraClient.Connect(); err != nil {
+		p.logger.Error("Failed to connect camera", "error", err)
 		return fmt.Errorf("cameraClient.Connect() error %w", err)
 	}
-
-	return nil
-}
-
-// Disconnect disconnects from the underlying clients
-func (p *Printer) Disconnect() error {
-	p.mqttClient.Disconnect()
-
-	err := p.ftpClient.Disconnect()
-	if err != nil {
-		return fmt.Errorf("ftpClient.Disconnect() error %w", err)
-	}
-
-	// err = p.cameraClient.Disconnect()
-	// if err != nil {
-	// 	return fmt.Errorf("cameraClient.Disconnect() error %w", err)
-	// }
-
+	p.logger.Info("Camera connected")
 	return nil
 }
 
 func (p *Printer) DisconnectCamera() error {
-	err := p.cameraClient.Disconnect()
-	if err != nil {
+	p.logger.Info("Disconnecting camera")
+	if err := p.cameraClient.Disconnect(); err != nil {
+		p.logger.Error("Failed to disconnect camera", "error", err)
 		return fmt.Errorf("cameraClient.Disconnect() error %w", err)
 	}
-
+	p.logger.Info("Camera disconnected")
 	return nil
 }
 
@@ -124,14 +120,10 @@ func unsafeParseInt(s string) int {
 	return i
 }
 
-// Data returns the current state of the printer as a Data struct.
-// This function is currently working but problems exist with the underlying.
-// TODO: HMS
 func (p *Printer) Data() (Data, error) {
-	// Retrieve data from the MQTT client
+	p.logger.Info("Fetching printer data")
 	data := p.mqttClient.Data()
 
-	// Initialize the final Data structure with basic fields
 	final := Data{
 		Ams:                     make([]Ams, 0),
 		AmsExists:               data.Print.Ams.AmsExistBits == "1",
@@ -170,17 +162,19 @@ func (p *Printer) Data() (Data, error) {
 		} else {
 			c, err := parseHexColorFast(col)
 			if err != nil {
+				p.logger.Error("Failed to parse tray color", "color", col, "error", err)
 				return Data{}, fmt.Errorf("parseHexColorFast() error %w", err)
 			}
 			colors = append(colors, c)
 		}
 	}
 
-	var trayColor = color.RGBA{}
+	var trayColor color.RGBA
 	if data.Print.VtTray.TrayColor != "" {
 		var err error
 		trayColor, err = parseHexColorFast(data.Print.VtTray.TrayColor)
 		if err != nil {
+			p.logger.Error("Failed to parse tray color", "color", data.Print.VtTray.TrayColor, "error", err)
 			return Data{}, fmt.Errorf("parseHexColorFast() error %w", err)
 		}
 	}
@@ -200,32 +194,29 @@ func (p *Printer) Data() (Data, error) {
 		TrayWeight:        unsafeParseInt(data.Print.VtTray.TrayWeight),
 	}
 
-	// Process AMS data
 	for _, ams := range data.Print.Ams.Ams {
 		trays := make([]Tray, 0)
-
-		// Process trays for each AMS
 		for _, tray := range ams.Tray {
-			colors := make([]color.RGBA, 0)
-
-			// Process colors for each tray
+			trayColors := make([]color.RGBA, 0)
 			for _, col := range tray.Cols {
 				if col == "" {
-					colors = append(colors, color.RGBA{})
+					trayColors = append(trayColors, color.RGBA{})
+					continue
 				}
 				c, err := parseHexColorFast(col)
 				if err != nil {
+					p.logger.Error("Failed to parse AMS tray color", "color", col, "error", err)
 					return Data{}, fmt.Errorf("parseHexColorFast() error %w", err)
 				}
-				colors = append(colors, c)
+				trayColors = append(trayColors, c)
 			}
 
-			var trayColor = color.RGBA{}
+			var tColor color.RGBA
 			if tray.TrayColor != "" {
-
 				var err error
-				trayColor, err = parseHexColorFast(tray.TrayColor)
+				tColor, err = parseHexColorFast(tray.TrayColor)
 				if err != nil {
+					p.logger.Error("Failed to parse AMS tray color", "color", tray.TrayColor, "error", err)
 					return Data{}, fmt.Errorf("parseHexColorFast() error %w", err)
 				}
 			}
@@ -233,19 +224,18 @@ func (p *Printer) Data() (Data, error) {
 			trays = append(trays, Tray{
 				ID:                unsafeParseInt(tray.ID),
 				BedTemperature:    unsafeParseFloat(tray.BedTemp),
-				Colors:            colors,
+				Colors:            trayColors,
 				DryingTemperature: unsafeParseFloat(tray.DryingTemp),
 				DryingTime:        unsafeParseInt(tray.DryingTime),
 				NozzleTempMax:     unsafeParseFloat(tray.NozzleTempMax),
 				NozzleTempMin:     unsafeParseFloat(tray.NozzleTempMin),
-				TrayColor:         trayColor,
+				TrayColor:         tColor,
 				TrayDiameter:      unsafeParseFloat(tray.TrayDiameter),
 				TraySubBrands:     tray.TraySubBrands,
 				TrayType:          tray.TrayType,
 				TrayWeight:        unsafeParseInt(tray.TrayWeight),
 			})
 		}
-
 		final.Ams = append(final.Ams, Ams{
 			Humidity:    unsafeParseInt(ams.Humidity),
 			ID:          unsafeParseInt(ams.ID),
@@ -254,33 +244,29 @@ func (p *Printer) Data() (Data, error) {
 		})
 	}
 
+	p.logger.Info("Printer data fetched successfully")
 	return final, nil
 }
 
-// region Get Data Functions
-
-// GetSerial returns the serial number of the printer.
-// This is used to identify the printer.
 func (p *Printer) GetSerial() string {
+	p.logger.Debug("Retrieving printer serial", "serial", p.serial)
 	return p.serial
 }
 
-// GetPrinterState gets the current state of the printer.
-// This function is currently working but problems exist with the underlying.
 func (p *Printer) GetPrinterState() state.GcodeState {
-	return state.GcodeState(p.mqttClient.Data().Print.GcodeState)
+	s := state.GcodeState(p.mqttClient.Data().Print.GcodeState)
+	p.logger.Debug("Retrieved printer state", "state", s.String())
+	return s
 }
 
-// GetHMSErrors gets the current errors from the printer.
-// This function is currently untested.
 func (p *Printer) GetHMSErrors() []hms.Error {
-	return p.mqttClient.Data().Print.HMS
+	errors := p.mqttClient.Data().Print.HMS
+	p.logger.Debug("Retrieved HMS errors", "count", len(errors))
+	return errors
 }
-
-//region Publishing functions (Set)
 
 func (p *Printer) setLight(light _light.Light, mode _light.Mode) error {
-	// The fields led_on_time, led_off_time, loop_times, and interval_time are only used for mode "flashing" but are required nonetheless.
+	p.logger.Info("Setting light", "light", light.String(), "mode", mode.String())
 	command := mqtt.NewCommand(mqtt.System).
 		AddCommandField("ledctrl").
 		AddField("led_node", light).
@@ -291,13 +277,17 @@ func (p *Printer) setLight(light _light.Light, mode _light.Mode) error {
 		AddField("interval_time", 1000)
 
 	if err := p.mqttClient.Publish(command); err != nil {
+		p.logger.Error("Failed to set light", "light", light.String(), "mode", mode.String(), "error", err)
 		return fmt.Errorf("error setting light %s: %w", light, err)
 	}
 
+	p.logger.Info("Light set successfully", "light", light.String(), "mode", mode.String())
 	return nil
 }
 
 func (p *Printer) setLightFlashing(light _light.Light, mode _light.Mode, onTime, offTime, loopTimes, intervalTime int) error {
+	p.logger.Info("Setting flashing light", "light", light.String(), "mode", mode.String(),
+		"onTime", onTime, "offTime", offTime, "loopTimes", loopTimes, "intervalTime", intervalTime)
 	command := mqtt.NewCommand(mqtt.System).
 		AddCommandField("ledctrl").
 		AddField("led_node", light).
@@ -308,222 +298,124 @@ func (p *Printer) setLightFlashing(light _light.Light, mode _light.Mode, onTime,
 		AddField("interval_time", intervalTime)
 
 	if err := p.mqttClient.Publish(command); err != nil {
+		p.logger.Error("Failed to set flashing light", "light", light.String(), "error", err)
 		return fmt.Errorf("error setting light %s: %w", light, err)
 	}
 
+	p.logger.Info("Flashing light set successfully", "light", light.String())
 	return nil
 }
 
-// LightOn turns a given light on.
-// This function is working and has been tested on:
-// - [x] X1 Carbon
 func (p *Printer) LightOn(light _light.Light) error {
 	return p.setLight(light, _light.On)
 }
 
-// LightOff turns a given light off.
-// This function is working and has been tested on:
-// - [x] X1 Carbon
 func (p *Printer) LightOff(light _light.Light) error {
 	return p.setLight(light, _light.Off)
 }
 
-// LightFlashing sets a given light to flash on and off with the specified times.
-// This function is working and has been tested on:
-// - [x] X1 Carbon
 func (p *Printer) LightFlashing(light _light.Light, onTime, offTime, loopTimes, intervalTime int) error {
 	return p.setLightFlashing(light, _light.Flashing, onTime, offTime, loopTimes, intervalTime)
 }
 
-// StopPrint fully stops the current print job.
-// Function works independently but problems exist with the underlying.
 func (p *Printer) StopPrint() error {
+	p.logger.Info("Stopping print")
 	s := p.GetPrinterState()
-
 	if s == state.IDLE || s == state.UNKNOWN {
-		return fmt.Errorf("error pausing print: %s", s.String())
+		p.logger.Warn("Cannot stop print: invalid state", "state", s.String())
+		return fmt.Errorf("error stopping print: %s", s.String())
 	}
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("stop")
-
 	if err := p.mqttClient.Publish(command); err != nil {
+		p.logger.Error("Failed to stop print", "error", err)
 		return fmt.Errorf("error stopping print: %w", err)
 	}
 
+	p.logger.Info("Print stopped successfully")
 	return nil
 }
 
-// PausePrint pauses the current print job.
-// Function works independently but problems exist with the underlying.
 func (p *Printer) PausePrint() error {
+	p.logger.Info("Pausing print")
 	s := p.GetPrinterState()
-
 	if s == state.PAUSE || s == state.UNKNOWN {
+		p.logger.Warn("Cannot pause print: invalid state", "state", s.String())
 		return fmt.Errorf("error pausing print: %s", s.String())
 	}
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("pause")
-
 	if err := p.mqttClient.Publish(command); err != nil {
+		p.logger.Error("Failed to pause print", "error", err)
 		return fmt.Errorf("error pausing print: %w", err)
 	}
 
+	p.logger.Info("Print paused successfully")
 	return nil
 }
 
-// ResumePrint resumes a paused print job.
-// Function works independently but problems exist with the underlying.
 func (p *Printer) ResumePrint() error {
+	p.logger.Info("Resuming print")
 	s := p.GetPrinterState()
-
 	if s == state.RUNNING || s == state.UNKNOWN {
-		return fmt.Errorf("error pausing print: %s", s.String())
+		p.logger.Warn("Cannot resume print: invalid state", "state", s.String())
+		return fmt.Errorf("error resuming print: %s", s.String())
 	}
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("resume")
-
 	if err := p.mqttClient.Publish(command); err != nil {
+		p.logger.Error("Failed to resume print", "error", err)
 		return fmt.Errorf("error resuming print: %w", err)
 	}
 
+	p.logger.Info("Print resumed successfully")
 	return nil
 }
 
-// SendGcode sends gcode command lines in a list to the printer.
-// This function is working and has been tested on:
-// - [x] X1 Carbon
 func (p *Printer) SendGcode(gcode []string) error {
+	p.logger.Info("Sending gcode commands", "count", len(gcode))
 	for _, g := range gcode {
 		if !isValidGCode(g) {
+			p.logger.Error("Invalid gcode line", "gcode", g)
 			return fmt.Errorf("invalid gcode: %s", g)
 		}
 
 		command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(g)
-
 		if err := p.mqttClient.Publish(command); err != nil {
+			p.logger.Error("Failed to send gcode", "gcode", g, "error", err)
 			return fmt.Errorf("error sending gcode line %s: %w", g, err)
 		}
+		p.logger.Debug("Gcode line sent", "gcode", g)
 	}
+	p.logger.Info("All gcode commands sent successfully")
 	return nil
 }
 
-// PrintGcodeFile prints a gcode file on the printer given an absolute path.
-// This function is untested
-func (p *Printer) PrintGcodeFile(filePath string) error {
-	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_file").AddParamField(filePath)
-
-	if err := p.mqttClient.Publish(command); err != nil {
-		return fmt.Errorf("error printing gcode file %s: %w", filePath, err)
-	}
-
-	return nil
-}
-
-// Print3mfFile prints a ".gcode.3mf" file which resides on the printer. A file url (beginning with ftp:/// or file:///) should be passed in.
-// You can upload a file through the ftp store function, then print it with this function using the url ftp:///[filename]. Make sure that it ends in .gcode or .gcode.3mf.
-// The plate number should almost always be 1.
-// This function is working and has been tested on:
-// - [x] X1 Carbon
-func (p *Printer) Print3mfFile(fileUrl string, plate int, useAms bool, timelapse bool, calibrate bool, inspectLayers bool) error {
-	command := mqtt.NewCommand(mqtt.Print).AddCommandField("project_file").AddParamField(fmt.Sprintf("Metadata/plate_%d.gcode", plate))
-
-	command.AddField("project_id", "0")
-	command.AddField("profile_id", "0")
-	command.AddField("task_id", "0")
-	command.AddField("subtask_id", "0")
-	command.AddField("subtask_name", "")
-	command.AddField("file", "")
-	command.AddField("url", fileUrl)
-	command.AddField("md5", "")
-	command.AddField("timelapse", timelapse)
-	command.AddField("bed_type", "auto")
-	command.AddField("bed_levelling", calibrate)
-	command.AddField("flow_cali", calibrate)
-	command.AddField("vibration_cali", calibrate)
-	command.AddField("layer_inspect", inspectLayers)
-	command.AddField("ams_mapping", "")
-	command.AddField("use_ams", useAms)
-
-	if err := p.mqttClient.Publish(command); err != nil {
-		return fmt.Errorf("error printing %s: %w", fileUrl, err)
-	}
-
-	return nil
-}
-
-// SetBedTemperature sets the bed temperature to a specified number in degrees Celcius using a gcode command.
 func (p *Printer) SetBedTemperature(temperature int) error {
+	p.logger.Info("Setting bed temperature", "temperature", temperature)
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M140 S%d", temperature))
-
 	if err := p.mqttClient.Publish(command); err != nil {
+		p.logger.Error("Failed to set bed temperature", "error", err)
 		return fmt.Errorf("error setting bed temperature: %w", err)
 	}
-
+	p.logger.Info("Bed temperature set successfully", "temperature", temperature)
 	return nil
 }
 
-// SetBedTemperatureAndWaitUntilReached sets the bed temperature to a specified number in degrees Celsius and waits for it to be reached using a gcode command.
-func (p *Printer) SetBedTemperatureAndWaitUntilReached(temperature int) error {
-	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M190 S%d", temperature))
-
-	if err := p.mqttClient.Publish(command); err != nil {
-		return fmt.Errorf("error setting bed temperature and waiting for it to be reached: %w", err)
-	}
-
-	return nil
-}
-
-// SetBedHeight sets the bed height to a specified number in millimeters using a gcode command.
-func (p *Printer) SetBedHeight(z int) error {
-	return p.SendGcode([]string{fmt.Sprintf("G1 Z%d", z)})
-}
-
-// SetFanSpeed sets the speed of fan to a speed between 0-255.
-// This function is working and has been tested on:
-// - [x] X1 Carbon
-func (p *Printer) SetFanSpeed(fan _fan.Fan, speed int) error {
-	if speed < 0 || speed > 255 {
-		return fmt.Errorf("invalid speed: %d; must be between 0 and 255", speed)
-	}
-
-	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M106 P%d S%d", fan, speed))
-
-	if err := p.mqttClient.Publish(command); err != nil {
-		return fmt.Errorf("error setting fan speed: %w", err)
-	}
-
-	return nil
-}
-
-// SetNozzleTemperature sets the nozzle temperature to a specified number in degrees Celsius using a gcode command.
-// This function is untested, but the underlying is working so it is likely to work.
 func (p *Printer) SetNozzleTemperature(temperature int) error {
+	p.logger.Info("Setting nozzle temperature", "temperature", temperature)
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M104 S%d", temperature))
-
 	if err := p.mqttClient.Publish(command); err != nil {
+		p.logger.Error("Failed to set nozzle temperature", "error", err)
 		return fmt.Errorf("error setting nozzle temperature: %w", err)
 	}
-
+	p.logger.Info("Nozzle temperature set successfully", "temperature", temperature)
 	return nil
 }
 
-// SetNozzleTemperatureAndWaitUntilReached sets the nozzle temperature to a specified number in degrees Celsius and waits for it to be reached using a gcode command.
-// This function is untested, but the underlying is working so it is likely to work.
-func (p *Printer) SetNozzleTemperatureAndWaitUntilReached(temperature int) error {
-	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M109 S%d", temperature))
-
-	if err := p.mqttClient.Publish(command); err != nil {
-		return fmt.Errorf("error setting nozzle temperature and waiting for it to be reached: %w", err)
-	}
-
-	return nil
-}
-
-// Calibrate runs the printer through a calibration process.
-// This function is currently untested.
 func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellation bool) error {
+	p.logger.Info("Starting calibration", "levelBed", levelBed, "vibrationCompensation", vibrationCompensation, "motorNoiseCancellation", motorNoiseCancellation)
 	bitmask := 0
-
 	if levelBed {
 		bitmask |= 1 << 1
 	}
@@ -535,72 +427,112 @@ func (p *Printer) Calibrate(levelBed, vibrationCompensation, motorNoiseCancellat
 	}
 
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("calibration").AddParamField(strconv.Itoa(bitmask))
-
 	if err := p.mqttClient.Publish(command); err != nil {
+		p.logger.Error("Failed to calibrate", "error", err)
 		return fmt.Errorf("error calibrating: %w", err)
 	}
-
+	p.logger.Info("Calibration started successfully", "bitmask", bitmask)
 	return nil
 }
 
-// SetPrintSpeed sets the print speed to a specified speed of type Speed (Silent, Standard, Sport, Ludicrous)
-// This function is currently untested.
 func (p *Printer) SetPrintSpeed(speed _printspeed.PrintSpeed) error {
+	p.logger.Info("Setting print speed", "speed", speed.String())
 	command := mqtt.NewCommand(mqtt.Print).AddCommandField("print_speed").AddParamField(speed)
-
 	if err := p.mqttClient.Publish(command); err != nil {
+		p.logger.Error("Failed to set print speed", "error", err)
 		return fmt.Errorf("error setting print speed: %w", err)
 	}
-
+	p.logger.Info("Print speed set successfully", "speed", speed.String())
 	return nil
 }
 
-//TODO: Load/Unload filament, AMS stuff, set filament, set bed height
+func (p *Printer) SetFanSpeed(fan _fan.Fan, speed int) error {
+	p.logger.Info("Setting fan speed", "fan", fan.String(), "speed", speed)
+	if speed < 0 || speed > 255 {
+		p.logger.Error("Invalid fan speed", "speed", speed)
+		return fmt.Errorf("invalid speed: %d; must be between 0 and 255", speed)
+	}
 
-//endregion
+	command := mqtt.NewCommand(mqtt.Print).AddCommandField("gcode_line").AddParamField(fmt.Sprintf("M106 P%d S%d", fan, speed))
+	if err := p.mqttClient.Publish(command); err != nil {
+		p.logger.Error("Failed to set fan speed", "fan", fan.String(), "speed", speed, "error", err)
+		return fmt.Errorf("error setting fan speed: %w", err)
+	}
+	p.logger.Info("Fan speed set successfully", "fan", fan.String(), "speed", speed)
+	return nil
+}
 
-// region FTP functions
-
-// StoreFile calls the underlying ftp client to store a file on the printer.
 func (p *Printer) StoreFile(path string, file os.File) error {
-	return p.ftpClient.StoreFile(path, file)
+	p.logger.Info("Storing file", "path", path)
+	if err := p.ftpClient.StoreFile(path, file); err != nil {
+		p.logger.Error("Failed to store file", "path", path, "error", err)
+		return err
+	}
+	p.logger.Info("File stored successfully", "path", path)
+	return nil
 }
 
-// ListDirectory calls the underlying ftp client to list the contents of a directory on the printer.
 func (p *Printer) ListDirectory(path string) ([]os.FileInfo, error) {
-	return p.ftpClient.ListDir(path)
+	p.logger.Info("Listing directory", "path", path)
+	infos, err := p.ftpClient.ListDir(path)
+	if err != nil {
+		p.logger.Error("Failed to list directory", "path", path, "error", err)
+		return nil, err
+	}
+	p.logger.Info("Directory listed successfully", "path", path, "count", len(infos))
+	return infos, nil
 }
 
-// RetrieveFile calls the underlying ftp client to retrieve a file from the printer.
 func (p *Printer) RetrieveFile(path string) (os.File, error) {
-	return p.ftpClient.RetrieveFile(path)
+	p.logger.Info("Retrieving file", "path", path)
+	file, err := p.ftpClient.RetrieveFile(path)
+	if err != nil {
+		p.logger.Error("Failed to retrieve file", "path", path, "error", err)
+		return os.File{}, err
+	}
+	p.logger.Info("File retrieved successfully", "path", path)
+	return file, nil
 }
 
-// DeleteFile calls the underlying ftp client to delete a file from the printer.
 func (p *Printer) DeleteFile(path string) error {
-	return p.ftpClient.DeleteFile(path)
+	p.logger.Info("Deleting file", "path", path)
+	if err := p.ftpClient.DeleteFile(path); err != nil {
+		p.logger.Error("Failed to delete file", "path", path, "error", err)
+		return err
+	}
+	p.logger.Info("File deleted successfully", "path", path)
+	return nil
 }
 
-//endregion
-
-// region Camera functions
-
-// CaptureCameraFrame calls the underlying camera client to capture a frame from the printer.
 func (p *Printer) CaptureCameraFrame() ([]byte, error) {
-	return p.cameraClient.CaptureFrame()
+	p.logger.Info("Capturing camera frame", "printer", p.serial)
+	frame, err := p.cameraClient.CaptureFrame()
+	if err != nil {
+		p.logger.Error("Failed to capture camera frame", "printer", p.serial, "error", err)
+		return nil, err
+	}
+	p.logger.Info("Camera frame captured successfully", "printer", p.serial, "frameSize", len(frame))
+	return frame, nil
 }
 
 func (p *Printer) StartCameraStream() (<-chan []byte, error) {
-	return p.cameraClient.StartStream()
+	p.logger.Info("Starting camera stream", "printer", p.serial)
+	stream, err := p.cameraClient.StartStream()
+	if err != nil {
+		p.logger.Error("Failed to start camera stream", "printer", p.serial, "error", err)
+		return nil, err
+	}
+	p.logger.Info("Camera stream started successfully", "printer", p.serial)
+	return stream, nil
 }
 
 func (p *Printer) StopCameraStream() error {
+	p.logger.Info("Stopping camera stream", "printer", p.serial)
 	err := p.cameraClient.StopStream()
 	if err != nil {
+		p.logger.Error("Failed to stop camera stream", "printer", p.serial, "error", err)
 		return err
 	}
-
+	p.logger.Info("Camera stream stopped successfully", "printer", p.serial)
 	return nil
 }
-
-// endregion
