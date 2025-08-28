@@ -5,7 +5,7 @@ go 1.23.5
 require (
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/secsy/goftp v0.0.0-20200609142545-aa2de14babf4
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 )
 
 require (
