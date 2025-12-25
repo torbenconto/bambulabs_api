@@ -52,6 +52,8 @@ func NewClient(config *ClientConfig) *Client {
 		SetPassword(config.AccessCode).
 		SetTLSConfig(&tls.Config{InsecureSkipVerify: true}).
 		SetAutoReconnect(true).
+		SetConnectTimeout(10 * time.Second).
+		SetWriteTimeout(10 * time.Second).
 		SetKeepAlive(30 * time.Second)
 
 	client := &Client{
