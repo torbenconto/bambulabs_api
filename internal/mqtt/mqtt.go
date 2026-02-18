@@ -91,8 +91,10 @@ func (m *MqttClient) Connect() error {
 	return nil
 }
 
-func (c *MqttClient) Close() {
+func (c *MqttClient) Close() error {
 	c.cancel()
 	close(c.messageChan)
 	c.client.Disconnect(250)
+
+	return nil
 }

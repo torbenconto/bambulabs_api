@@ -33,6 +33,8 @@ type printer struct {
 	mqtt   *mqtt.MqttClient
 
 	state atomic.Pointer[mqtt.Message]
+
+	done chan struct{}
 }
 
 func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
@@ -47,6 +49,7 @@ func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 	})
 
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 
@@ -63,17 +66,25 @@ func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 		mqtt:   mc,
 	}
 
+	p.run()
+
 	return p, nil
 }
 
 func (p *printer) run() {
 	messageChan := p.mqtt.MessageChan()
+
 	go func() {
+		defer close(p.done)
+
 		for {
 			select {
 			case <-p.ctx.Done():
 				return
-			case payload := <-messageChan:
+			case payload, ok := <-messageChan:
+				if !ok {
+					return
+				}
 				p.updateState(payload)
 			}
 		}
@@ -87,7 +98,6 @@ func (p *printer) updateState(payload []byte) {
 		return
 	}
 
-	// Atomic swap
 	p.state.Store(&msg)
 }
 
@@ -96,5 +106,10 @@ func (p *printer) Serial() string {
 }
 
 func (p *printer) Close() error {
-	return nil
+	p.cancel()
+	err := p.mqtt.Close()
+
+	<-p.done
+
+	return err
 }
