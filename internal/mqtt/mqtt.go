@@ -53,7 +53,6 @@ func NewMqttClient(parent context.Context, cfg *MqttConfig) (*MqttClient, error)
 
 	client := &MqttClient{
 		config:      cfg,
-		client:      paho.NewClient(opts),
 		ctx:         ctx,
 		messageChan: make(chan []byte, 200),
 		cancel:      cancel,
@@ -61,6 +60,7 @@ func NewMqttClient(parent context.Context, cfg *MqttConfig) (*MqttClient, error)
 
 	opts.SetOnConnectHandler(client.onConnect)
 
+	client.client = paho.NewClient(opts)
 	return client, nil
 }
 
