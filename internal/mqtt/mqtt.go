@@ -69,7 +69,6 @@ func NewMqttClient(parent context.Context, cfg *MqttConfig) (*MqttClient, error)
 
 	client.client = paho.NewClient(opts)
 
-	client.client = paho.NewClient(opts)
 	return client, nil
 }
 
