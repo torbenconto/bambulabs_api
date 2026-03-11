@@ -1,74 +1,53 @@
 package protocol
 
-import (
-	"encoding/json"
-)
+import "encoding/json"
 
 type MessageType string
 
 const (
 	Print   MessageType = "print"
-	System              = "system"
-	Pushing             = "pushing"
+	System  MessageType = "system"
+	Pushing MessageType = "pushing"
+	Upgrade MessageType = "upgrade"
+	Info    MessageType = "info"
 )
 
+// Command is a wrapper for an MQTT command to the printer to ensure proper structure
 type Command struct {
-	Type MessageType
-	id   string
-
-	fields map[string]interface{}
+	messageType MessageType
+	id          string
+	fields      map[string]any
 }
 
-func NewCommand(msgType MessageType) *Command {
-	cmd := &Command{
-		Type:   msgType,
-		id:     "0",
-		fields: make(map[string]interface{}),
+func NewCommand(messageType MessageType) *Command {
+	c := &Command{
+		messageType: messageType,
+		id:          "0",
+		fields:      make(map[string]any),
 	}
 
-	return cmd.AddIdField(cmd.id)
-
+	return c.WithSequenceID(c.id)
 }
 
-// AddField adds a field with the given key and value.
-func (c *Command) AddField(key string, value interface{}) *Command {
+func (c *Command) Set(key string, value any) *Command {
 	c.fields[key] = value
-
 	return c
 }
 
-// AddCommandField adds a field with key "command" and the given value.
-func (c *Command) AddCommandField(value interface{}) *Command {
-	c.AddField("command", value)
-
-	return c
+func (c *Command) WithCommand(cmd any) *Command {
+	return c.Set("command", cmd)
 }
 
-// AddParamField adds a field with key "param" and the given value.
-func (c *Command) AddParamField(value interface{}) *Command {
-	c.AddField("param", value)
-
-	return c
+func (c *Command) WithParam(param any) *Command {
+	return c.Set("param", param)
 }
 
-func (c *Command) AddIdField(id string) *Command {
-	c.AddField("sequence_id", id)
-
-	return c
+func (c *Command) WithSequenceID(id string) *Command {
+	return c.Set("sequence_id", id)
 }
 
-// JSON returns the command as a JSON string.
-func (c *Command) JSON() (string, error) {
-	data := make(map[string]interface{})
-	for k, v := range c.fields {
-		data[k] = v
-	}
-	message := map[string]interface{}{
-		string(c.Type): data,
-	}
-	jsonData, err := json.Marshal(message)
-	if err != nil {
-		return "", err
-	}
-	return string(jsonData), nil
+func (c *Command) Marshal() ([]byte, error) {
+	return json.Marshal(map[string]any{
+		string(c.messageType): c.fields,
+	})
 }

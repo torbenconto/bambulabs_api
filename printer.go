@@ -22,6 +22,7 @@ type Config struct {
 type Printer interface {
 	Serial() string
 	Close() error
+	State() (*mqtt.Message, bool)
 }
 
 type printer struct {
@@ -54,6 +55,7 @@ func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 	}
 
 	if err := mc.Connect(); err != nil {
+		cancel()
 		return nil, err
 	}
 
@@ -64,6 +66,7 @@ func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 		ctx:    ctx,
 		cancel: cancel,
 		mqtt:   mc,
+		done:   make(chan struct{}),
 	}
 
 	p.run()
@@ -112,4 +115,12 @@ func (p *printer) Close() error {
 	<-p.done
 
 	return err
+}
+
+func (p *printer) State() (*mqtt.Message, bool) {
+	m := p.state.Load()
+	if m == nil {
+		return nil, false
+	}
+	return m, true
 }

@@ -9,10 +9,12 @@ import (
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/torbenconto/bambulabs_api/internal/protocol"
 )
 
 const (
 	clientID = "torbenconto/bambulabs_api"
+	qos      = 0
 )
 
 type MqttConfig struct {
@@ -41,25 +43,31 @@ func NewMqttClient(parent context.Context, cfg *MqttConfig) (*MqttClient, error)
 	ctx, cancel := context.WithCancel(parent)
 
 	opts := paho.NewClientOptions().
-		AddBroker(fmt.Sprintf("mqtts://%s:%d", cfg.Host, cfg.Port)).
+		AddBroker(fmt.Sprintf("mqtts://%s:%d", cfg.Host.String(), cfg.Port)).
 		SetClientID(clientID).
 		SetUsername("bblp").
 		SetPassword(cfg.AccessCode).
 		SetTLSConfig(&tls.Config{InsecureSkipVerify: true}).
-		SetAutoReconnect(false).
+		SetAutoReconnect(true).
 		SetConnectTimeout(cfg.Timeout).
 		SetWriteTimeout(cfg.Timeout).
 		SetKeepAlive(30 * time.Second)
 
 	client := &MqttClient{
 		config:      cfg,
-		client:      paho.NewClient(opts),
 		ctx:         ctx,
 		messageChan: make(chan []byte, 200),
 		cancel:      cancel,
 	}
 
 	opts.SetOnConnectHandler(client.onConnect)
+	opts.SetDefaultPublishHandler(client.handleMessage)
+
+	opts.SetConnectionLostHandler(func(c paho.Client, err error) {
+		log.Printf("MQTT connection lost: %v", err)
+	})
+
+	client.client = paho.NewClient(opts)
 
 	return client, nil
 }
@@ -69,22 +77,35 @@ func (c *MqttClient) onConnect(client paho.Client) {
 	token := client.Subscribe(topic, 0, c.handleMessage)
 	token.Wait()
 	if token.Error() != nil {
-		log.Printf("Failed to subscribe to topic %s: %v", topic, token.Error())
 		return
 	}
-	log.Printf("Subscribed to topic %s", topic)
 }
 
 func (c *MqttClient) handleMessage(_ paho.Client, msg paho.Message) {
 	select {
 	case c.messageChan <- msg.Payload():
 	default:
-		log.Println("Message dropped: channel full")
+		// drop msg
 	}
 }
 
-func (m *MqttClient) Connect() error {
-	if token := m.client.Connect(); token.Wait() && token.Error() != nil {
+func (c *MqttClient) Connect() error {
+	if token := c.client.Connect(); token.Wait() && token.Error() != nil {
+		return token.Error()
+	}
+
+	return nil
+}
+
+func (c *MqttClient) Publish(cmd protocol.Command) error {
+	json, err := cmd.Marshal()
+	if err != nil {
+		return err
+	}
+
+	topic := fmt.Sprintf("device/%s/request", c.config.SerialNumber)
+
+	if token := c.client.Publish(topic, qos, false, json); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
 
