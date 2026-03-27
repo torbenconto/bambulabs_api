@@ -78,6 +78,7 @@ type AMS struct {
 	TrayReadDoneBits string    `json:"tray_read_done_bits"`
 	TrayReadingBits  string    `json:"tray_reading_bits"`
 	TrayTar          string    `json:"tray_tar"`
+	TrayPre          string    `json:"tray_pre"`
 	Version          int       `json:"version"`
 }
 
