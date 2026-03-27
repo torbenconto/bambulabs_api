@@ -69,17 +69,32 @@ func (m *MessageBuilder) SetGcodeState(state bambulabs_api.GcodeState) {
 		p.McPrintStage = strconv.Itoa(randInt(2, 5))
 		p.McPrintSubStage = randInt(0, 3)
 		p.McRemainingTime = randInt(300, 7200)
+		p.McPrintErrorCode = "0"
 
 		p.NozzleTargetTemper = randFloat(200, 230)
 		p.NozzleTemper = p.NozzleTargetTemper - randFloat(0, 5)
 
+		bed := randFloat(50.0, 60.0)
+		p.BedTemper = bed
+		p.BedTargetTemper = bed
+
 		p.PrintRealAction = 1
 		p.PrintGcodeAction = 1
+		p.PrintError = 0
+		p.PrintType = "local"
 
 		p.GcodeState = string(bambulabs_api.RUNNING)
 		p.GcodeFile = "example.gcode"
-		p.GcodeFilePreparePercent = strconv.Itoa(randInt(90, 100))
+		p.GcodeFilePreparePercent = "100"
 		p.GcodeStartTime = strconv.FormatInt(time.Now().Add(-time.Duration(randInt(60, 3600))*time.Second).Unix(), 10)
+
+		p.SubtaskName = "test"
+		p.SubtaskID = "test"
+		p.TaskID = strconv.Itoa(randInt(100000, 999999))
+		p.ProjectID = strconv.Itoa(randInt(100000, 999999))
+		p.ProfileID = strconv.Itoa(randInt(100000, 999999))
+		p.QueueNumber = 0
+
 	case bambulabs_api.IDLE:
 	case bambulabs_api.UNKNOWN:
 	default:
