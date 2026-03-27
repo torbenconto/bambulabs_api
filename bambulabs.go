@@ -34,18 +34,6 @@ func HasCapability(mask Capability, cap Capability) bool {
 	return mask&cap != 0
 }
 
-type GcodeState string
-
-const (
-	IDLE    GcodeState = "IDLE"
-	PREPARE GcodeState = "PREPARE"
-	RUNNING GcodeState = "RUNNING"
-	PAUSE   GcodeState = "PAUSE"
-	FINISH  GcodeState = "FINISH"
-	FAILED  GcodeState = "FAILED"
-	UNKNOWN GcodeState = "UNKNOWN"
-)
-
 // Core client struct, v0.1.6 and below were sloppy and required manual control of printer structs and the pool abstraction was just layered on top
 // This aims to fix those issues by providing a unified interface for printer interaction
 
