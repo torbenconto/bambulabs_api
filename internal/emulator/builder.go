@@ -42,7 +42,7 @@ func (m *MessageBuilder) SetCapability(capability bambulabs_api.Capability) *Mes
 		p.Ams.Ams = append(p.Ams.Ams, mqtt.AMSUnit{
 			ID:       "0",
 			Humidity: strconv.Itoa((randInt(0, 5))),              // "0" -> "4", humidity value
-			Temp:     fmt.Sprintf("%.1f", randFloat(20.0, 24.0)), // room temp in deg C
+			Temp:     fmt.Sprintf("%.1f", randRoomTemp()), // room temp in deg C
 		})
 
 		for _, id := range []string{"0", "1", "2", "3"} {
@@ -61,6 +61,35 @@ func (m *MessageBuilder) SetCapability(capability bambulabs_api.Capability) *Mes
 func (m *MessageBuilder) SetGcodeState(state bambulabs_api.GcodeState) *MessageBuilder {
 	p := &m.msg.Print
 	switch state {
+	case bambulabs_api.PREPARE:
+		m.resetPrintState()
+		
+		p.NozzleTargetTemper = 250
+		p.NozzleTemper = randRoomTemp()
+
+		bedTemp := randRoomTemp()
+		p.BedTemper = randFloat(bedTemp, bedTemp+10)
+		p.BedTargetTemper = randFloat(40.0, 60.0)
+
+		p.GcodeFilePreparePercent = strconv.Itoa(randInt(0,99))
+
+		p.GcodeStartTime = strconv.FormatInt(time.Now().Add(-time.Duration(randInt(60, 3600))*time.Second).Unix(), 10)
+
+        p.SubtaskName = "test"
+        p.SubtaskID = "test"
+        p.TaskID = strconv.Itoa(randInt(100000, 999999))
+        p.ProjectID = strconv.Itoa(randInt(100000, 999999))
+        p.ProfileID = strconv.Itoa(randInt(100000, 999999))
+        p.QueueNumber = 0
+
+		p.GcodeFile = "example.gcode"
+		p.PrintType = "local"
+
+		p.McRemainingTime = randInt(300, 7200)
+
+		p.TotalLayerNum = randInt(100, 400)
+
+		p.GcodeState = string(bambulabs_api.PREPARE)
 	case bambulabs_api.RUNNING:
 		m.resetPrintState()
 		totalLayers := randInt(100, 400)
@@ -190,6 +219,10 @@ func randInt(min, max int) int {
 
 func randFloat(min, max float64) float64 {
 	return (rand.Float64() * (max - min)) + min
+}
+
+func randRoomTemp() float64 {
+	return randFloat(20.0, 24.0)
 }
 
 func (m *MessageBuilder) Build() *mqtt.Message {
