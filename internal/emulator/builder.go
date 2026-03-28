@@ -57,6 +57,22 @@ func (m *MessageBuilder) SetCapability(capability bambulabs_api.Capability) {
 func (m *MessageBuilder) SetGcodeState(state bambulabs_api.GcodeState) {
 	p := &m.msg.Print
 	switch state {
+	case bambulabs_api.PREPARE:
+		m.resetPrintState()
+
+		p.McPercent = 0
+
+		p.McPrintStage = strconv.Itoa(0)
+		p.McPrintSubStage = 0
+		p.McRemainingTime = 0
+
+		p.NozzleTargetTemper = 250
+		p.NozzleTemper = randFloat(20.0, 24.0) // room temp in deg C
+
+		p.PrintRealAction = 1
+		p.PrintGcodeAction = 1
+
+		p.GcodeState = string(bambulabs_api.PREPARE)
 	case bambulabs_api.RUNNING:
 		m.resetPrintState()
 		totalLayers := randInt(100, 400)
@@ -82,6 +98,7 @@ func (m *MessageBuilder) SetGcodeState(state bambulabs_api.GcodeState) {
 		p.GcodeStartTime = strconv.FormatInt(time.Now().Add(-time.Duration(randInt(60, 3600))*time.Second).Unix(), 10)
 	case bambulabs_api.IDLE:
 	case bambulabs_api.UNKNOWN:
+	case bambulabs_api.FAILED:
 	default:
 		m.resetPrintState()
 
