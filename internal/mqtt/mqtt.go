@@ -33,6 +33,7 @@ type MqttClient struct {
 	config      *MqttConfig
 	client      paho.Client
 	messageChan chan []byte
+	connected   chan struct{}
 }
 
 func (c *MqttClient) MessageChan() <-chan []byte {
@@ -58,6 +59,7 @@ func NewMqttClient(parent context.Context, cfg *MqttConfig) (*MqttClient, error)
 		ctx:         ctx,
 		messageChan: make(chan []byte, 200),
 		cancel:      cancel,
+		connected:   make(chan struct{}),
 	}
 
 	opts.SetOnConnectHandler(client.onConnect)
@@ -79,6 +81,11 @@ func (c *MqttClient) onConnect(client paho.Client) {
 	if token.Error() != nil {
 		return
 	}
+	select {
+	case <-c.connected:
+	default:
+		close(c.connected)
+	}
 }
 
 func (c *MqttClient) handleMessage(_ paho.Client, msg paho.Message) {
@@ -97,7 +104,11 @@ func (c *MqttClient) Connect() error {
 	return nil
 }
 
-func (c *MqttClient) Publish(cmd protocol.Command) error {
+func (c *MqttClient) Connected() <-chan struct{} {
+	return c.connected
+}
+
+func (c *MqttClient) Publish(cmd *protocol.Command) error {
 	json, err := cmd.Marshal()
 	if err != nil {
 		return err

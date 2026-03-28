@@ -2,7 +2,9 @@ package bambulabs_api
 
 import (
 	"context"
+	"fmt"
 	"sync"
+	"time"
 )
 
 // Model represents the printers model number
@@ -59,17 +61,23 @@ func (c *Client) Add(cfg Config) (Printer, error) {
 	if _, ok := c.printers.Load(cfg.SerialNumber); ok {
 		return nil, ErrPrinterExists
 	}
-
 	p, err := NewPrinter(c.ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	_, exists := c.printers.LoadOrStore(cfg.SerialNumber, p)
-	if exists {
-		return nil, ErrPrinterExists
+	ctx, cancel := context.WithTimeout(c.ctx, 10*time.Second)
+	defer cancel()
+	if err := p.waitForConnection(ctx); err != nil {
+		_ = p.Close()
+		return nil, fmt.Errorf("connect to %s: %w", cfg.SerialNumber, err)
 	}
 
+	_, exists := c.printers.LoadOrStore(cfg.SerialNumber, p)
+	if exists {
+		_ = p.Close()
+		return nil, ErrPrinterExists
+	}
 	return p, nil
 }
 

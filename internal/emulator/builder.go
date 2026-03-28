@@ -22,7 +22,7 @@ func NewMessageBuilder() *MessageBuilder {
 	}
 }
 
-func (m *MessageBuilder) SetCapability(capability bambulabs_api.Capability) {
+func (m *MessageBuilder) SetCapability(capability bambulabs_api.Capability) *MessageBuilder {
 	p := &m.msg.Print
 
 	if bambulabs_api.HasCapability(capability, bambulabs_api.CapabilityAms) {
@@ -51,10 +51,14 @@ func (m *MessageBuilder) SetCapability(capability bambulabs_api.Capability) {
 
 		// set vt_tray (external spool), larger chance to be empty
 		p.VtTray = randTray("254", .75)
+	} else {
+		p.VtTray = randTray("254", .10) // large chance without ams to have non-empty external tray
 	}
+
+	return m
 }
 
-func (m *MessageBuilder) SetGcodeState(state bambulabs_api.GcodeState) {
+func (m *MessageBuilder) SetGcodeState(state bambulabs_api.GcodeState) *MessageBuilder {
 	p := &m.msg.Print
 	switch state {
 	case bambulabs_api.RUNNING:
@@ -101,6 +105,8 @@ func (m *MessageBuilder) SetGcodeState(state bambulabs_api.GcodeState) {
 		m.resetPrintState()
 
 	}
+
+	return m
 }
 
 func (m *MessageBuilder) resetPrintState() {
@@ -184,4 +190,8 @@ func randInt(min, max int) int {
 
 func randFloat(min, max float64) float64 {
 	return (rand.Float64() * (max - min)) + min
+}
+
+func (m *MessageBuilder) Build() *mqtt.Message {
+	return m.msg
 }
