@@ -19,10 +19,6 @@ This project does not support the bambulabs cloud api, but it's sister project [
 ## Table of Contents
 
 - [Installation](#installation)
-- [Connecting to a Printer](#connecting-to-a-printer)
-- [Managing Multiple Printers](#managing-multiple-printers)
-- [Camera Access](#camera-access)
-- [Basic Examples](#basic-examples)
 - [Development](#development)
 - [Contributing](#contributing)
 - [Links & Resources](#links--resources)

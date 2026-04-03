@@ -9,10 +9,12 @@ import (
 	"time"
 
 	"github.com/torbenconto/bambulabs_api/internal/mqtt"
+	"github.com/torbenconto/bambulabs_api/internal/protocol"
 )
 
 type Config struct {
 	Host  net.IP
+	Port  int
 	Model Model
 
 	AccessCode   string
@@ -23,6 +25,7 @@ type Printer interface {
 	Serial() string
 	Close() error
 	State() (*mqtt.Message, bool)
+	RequestUpdate() error
 }
 
 type printer struct {
@@ -41,9 +44,14 @@ type printer struct {
 func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 	ctx, cancel := context.WithCancel(parent)
 
+	port := cfg.Port
+	if port == 0 {
+		port = 8883
+	}
+
 	mc, err := mqtt.NewMqttClient(ctx, &mqtt.MqttConfig{
 		Host:         cfg.Host,
-		Port:         8883,
+		Port:         port,
 		SerialNumber: cfg.SerialNumber,
 		AccessCode:   cfg.AccessCode,
 		Timeout:      10 * time.Second,
@@ -74,6 +82,15 @@ func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 	return p, nil
 }
 
+func (p *printer) waitForConnection(ctx context.Context) error {
+	select {
+	case <-p.mqtt.Connected():
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 func (p *printer) run() {
 	messageChan := p.mqtt.MessageChan()
 
@@ -102,6 +119,11 @@ func (p *printer) updateState(payload []byte) {
 	}
 
 	p.state.Store(&msg)
+}
+
+// RequestUpdate manually requests a "pushall", updating the printer state. Exercise caution in the interval you use this, especially on lower end printers.
+func (p *printer) RequestUpdate() error {
+	return p.mqtt.Publish(protocol.NewCommand(protocol.Pushing).WithCommand("pushall"))
 }
 
 func (p *printer) Serial() string {
