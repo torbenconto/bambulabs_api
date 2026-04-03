@@ -56,9 +56,17 @@ Once you have the necessary details, you can create and connect to the printer w
 
 ```go
 // Replace the values below with the ones for your printer
-
-new_client := NewClient(context.background())
-printer := Add()
+config := &bambulabs_api.Config{
+    Host:         net.ParseIP("12.34.56.78"),
+    Model:        bambulabs_api.ModelUnknown // Change to your printer's model
+    AccessCode:   "accessCode"
+    SerialNumber: "serialNumber"
+}
+new_client := bambulabs_api.NewClient(context.background())
+printer, err := new_client.Add(config)
+if err != nil {
+    panic(err)
+}
 ```
 
 The `Connect()` method establishes a connection through MQTT alongside opening an FTP connection to the printer. This allows you to interact with the printer and retrieve data.
