@@ -67,8 +67,35 @@ printer, err := new_client.Add(config)
 if err != nil {
     panic(err)
 }
+new_client.Close()
 ```
 
+Adding the printer to the config will immediately initiate a connection attempt to the given IP via both MQTT and FTP. The client is an abstraction which holds all your current printers, and allows you easily manage their connections, data, commands, etc.
+
+While the client stores your printer internally, you can also use the printer object returned by `Add()`, they are functionally identical. To retrieve a printer object from the client, you can use `Load()`.
+Example:
+
+```go
+loaded_printer, err := new_client.Load("serialNumber")
+if err != nil {
+    panic(err)
+}
+```
+
+You can iterate over stored printers using the `Range()` function:
+
+```go
+new_client.Range(func(p Printer) bool {
+    fmt.Println(p.SerialNumber)
+    return true
+})
+```
+
+When you're done with the client, close it using the `Close()` method:
+
+```go
+new_client.Close()
+```
 
 ## Development
 
