@@ -56,16 +56,9 @@ Once you have the necessary details, you can create and connect to the printer w
 
 ```go
 // Replace the values below with the ones for your printer
-config := &bambulabs_api.PrinterConfig{
-    Host:           "192.168.1.200",
-    AccessCode:   ACCESS_CODE,
-    SerialNumber: SERIAL_NUMBER,
-}
-printer := bambulabs_api.NewPrinter(config)
-err := printer.Connect()
-if err != nil {
-    panic(err)
-}
+
+new_client := NewClient(context.background())
+printer := Add()
 ```
 
 The `Connect()` method establishes a connection through MQTT alongside opening an FTP connection to the printer. This allows you to interact with the printer and retrieve data.
