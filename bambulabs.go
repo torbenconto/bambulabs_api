@@ -96,7 +96,7 @@ func (c *Client) Close() error {
 	c.cancel()
 
 	c.printers.Range(func(_, value any) bool {
-		p := value.(*printer)
+		p := value.(Printer)
 		_ = p.Close()
 		return true
 	})
