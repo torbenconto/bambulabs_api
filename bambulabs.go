@@ -82,7 +82,7 @@ func (c *Client) Remove(serial string) error {
 		return ErrPrinterNotFound
 	}
 
-	p := v.(*printer)
+	p := v.(Printer)
 	return p.Close()
 }
 
