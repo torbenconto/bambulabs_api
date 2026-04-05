@@ -93,6 +93,10 @@ When you're done with the client, close it using the `Close()` method:
 new_client.Close()
 ```
 
+### Whats the significance of the model variable?
+The model variable within the `bambulabs_api.Config` struct is an extremely valuable variable, it's used to communicate your printer's constraints to the package. Ensure this variable is accurate or your program may throw an error or behave unexpectedly. If you're unsure of your model, or are using the program for basic compatibility testing, use `bambulabs_api.ModelUnknown`, this model ensures a conservative constraint list, maximizing compatibility.
+
+
 ## Development
 
 ### Current Status: FULL FUNCTIONALITY
