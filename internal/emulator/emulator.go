@@ -100,6 +100,8 @@ func (e *Emulator) setTickers() {
 	switch e.targetModel {
 	case bambulabs_api.ModelX1C, bambulabs_api.ModelX1E, bambulabs_api.ModelH2:
 		e.unsolicitedUpdateTicker = time.NewTicker(5 * time.Second)
+	default:
+		e.unsolicitedUpdateTicker = time.NewTicker(1 * time.Minute)
 	}
 }
 

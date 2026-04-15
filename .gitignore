@@ -23,3 +23,6 @@ go.work.sum
 .vscode
 
 cmd/test
+
+# mac
+.DS*
