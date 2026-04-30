@@ -25,7 +25,7 @@ func NewMessageBuilder() *MessageBuilder {
 func (m *MessageBuilder) SetCapability(capability bambulabs_api.Capability) *MessageBuilder {
 	p := &m.msg.Print
 
-	if bambulabs_api.HasCapability(capability, bambulabs_api.CapabilityAms) {
+	if capability.Has(bambulabs_api.CapabilityAms) {
 		p.AmsStatus = 0          // OK
 		p.AmsRfidStatus = 6      // OK?
 		p.Ams.AmsExistBits = "1" // OK

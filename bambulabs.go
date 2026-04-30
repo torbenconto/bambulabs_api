@@ -24,18 +24,6 @@ const (
 	ModelH2
 )
 
-// Capability mask, currently only camera used
-type Capability uint64
-
-const (
-	CapabilityCamera = 1 << iota
-	CapabilityAms
-)
-
-func HasCapability(mask Capability, cap Capability) bool {
-	return mask&cap != 0
-}
-
 // Core client struct, v0.1.6 and below were sloppy and required manual control of printer structs and the pool abstraction was just layered on top
 // This aims to fix those issues by providing a unified interface for printer interaction
 
