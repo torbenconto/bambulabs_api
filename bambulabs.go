@@ -12,7 +12,7 @@ type Model uint
 
 // Model names and capabilites sourced from https://bambulab.com/en/compare
 const (
-	ModelUnkown Model = iota
+	ModelUnknown Model = iota
 	ModelA1Mini
 	ModelA1
 	ModelP1S
@@ -21,7 +21,10 @@ const (
 	ModelX1C
 	ModelH2S
 	ModelH2D
+	ModelH2DPro
 	ModelH2
+	ModelH2C
+	ModelX2D
 )
 
 // Core client struct, v0.1.6 and below were sloppy and required manual control of printer structs and the pool abstraction was just layered on top
