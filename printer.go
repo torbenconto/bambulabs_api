@@ -3,6 +3,7 @@ package bambulabs_api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"sync/atomic"
@@ -145,4 +146,57 @@ func (p *printer) State() (*mqtt.Message, bool) {
 		return nil, false
 	}
 	return m, true
+}
+
+// lights
+
+func (p *printer) SetLight(light Light, mode LightMode) error {
+	if !SupportsLight(p.model, light) {
+		return fmt.Errorf("%w: %s", ErrLightNotSupported, light)
+	}
+
+	command := protocol.NewCommand(protocol.System).
+		WithCommand("ledctrl").
+		Set("led_node", light).
+		Set("led_mode", mode).
+		Set("led_on_time", 500).
+		Set("led_off_time", 500).
+		Set("loop_times", 1).
+		Set("interval_time", 1000)
+
+	if err := p.mqtt.Publish(command); err != nil {
+		return fmt.Errorf("error setting light %s: %w", light, err)
+	}
+
+	return nil
+}
+
+// end lights
+
+// begin fans
+
+func (p *printer) SetFan(fan Fan, speed uint8) error { // implicit cap of 255
+	if !SupportsFan(p.model, fan) {
+		return fmt.Errorf("%w: %s", ErrFanNotSupported, fan.String())
+	}
+
+	if err := p.SendGcode([]string{fmt.Sprintf("M106 P%d S%d", fan, speed)}); err != nil {
+		return fmt.Errorf("error setting fan %s: %w", fan, err)
+	}
+	return nil
+}
+
+// end fans
+
+func (p *printer) SendGcode(input []string) error {
+	for _, line := range input {
+		// TODO: validate GCODE
+		cmd := protocol.NewCommand(protocol.Print).WithCommand("gcode_line").WithParam(line)
+
+		if err := p.mqtt.Publish(cmd); err != nil {
+			return fmt.Errorf("failed to publish gcode line %s: %w", line, err)
+		}
+	}
+
+	return nil
 }
