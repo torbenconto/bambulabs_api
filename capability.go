@@ -1,37 +1,93 @@
 package bambulabs_api
 
-type Capability uint64
+import "slices"
+
+type Capability uint8
 
 // We derive light and fan capabilites seperately
 const (
 	CapabilityCamera Capability = 1 << iota
-	CapabilityAms
+
+	CapabilityAmsLite
+	CapabilityFullAms
 )
 
-var capabilitiesForModel = map[Model]Capability{
-	ModelUnknown: 0,
-	ModelA1Mini:  CapabilityCamera | CapabilityAms,
-	ModelA1:      CapabilityCamera | CapabilityAms,
-	ModelP1S:     CapabilityAms,
-	ModelP2S:     CapabilityCamera | CapabilityAms,
-	ModelX1C:     CapabilityCamera | CapabilityAms,
-	ModelX1E:     CapabilityCamera | CapabilityAms,
-	ModelX2D:     CapabilityCamera | CapabilityAms,
-	ModelH2:      CapabilityCamera | CapabilityAms,
-	ModelH2S:     CapabilityCamera | CapabilityAms,
-	ModelH2D:     CapabilityCamera | CapabilityAms,
-	ModelH2DPro:  CapabilityCamera | CapabilityAms,
-	ModelH2C:     CapabilityCamera | CapabilityAms,
+// A model that supports full AMS also supports AMS lite.
+const CapabilityAnyAms = CapabilityAmsLite | CapabilityFullAms
+
+var allCapabilities = CapabilityAnyAms | CapabilityCamera
+
+type ModelInfo struct {
+	Capabilities Capability
+
+	CapableFans   []Fan
+	CapableLights []Light
+}
+
+var fullyCapable ModelInfo = ModelInfo{
+	Capabilities: allCapabilities,
+	CapableFans:  allFans,
+	CapableLights: []Light{
+		ChamberLight,
+	},
+}
+
+var models = map[Model]ModelInfo{
+	ModelUnknown: {
+		Capabilities:  0,
+		CapableFans:   []Fan{},
+		CapableLights: []Light{},
+	},
+
+	ModelA1Mini: {
+		Capabilities: CapabilityAmsLite | CapabilityCamera,
+		CapableFans: []Fan{
+			PartCoolingFan,
+		},
+		CapableLights: []Light{
+			ChamberLight,
+		},
+	},
+
+	ModelA1: {
+		Capabilities: CapabilityAmsLite | CapabilityCamera,
+		CapableFans: []Fan{
+			PartCoolingFan,
+		},
+		CapableLights: []Light{
+			ChamberLight,
+		},
+	},
+
+	ModelP1S: fullyCapable,
+
+	ModelP2S: fullyCapable,
+
+	ModelX1C: fullyCapable,
+
+	ModelX1E: fullyCapable,
+
+	ModelX2D: fullyCapable,
+
+	ModelH2: fullyCapable,
+
+	ModelH2S: fullyCapable,
+
+	ModelH2D: fullyCapable,
+
+	ModelH2DPro: fullyCapable,
+
+	ModelH2C: fullyCapable,
 }
 
 func (c Capability) Has(cap Capability) bool {
 	return c&cap != 0
 }
 
-func CapabilityForModel(m Model) Capability {
-	return capabilitiesForModel[m]
+func SupportsFan(m Model, f Fan) bool {
+	return slices.Contains(models[m].CapableFans, f)
 }
 
-func HasCapability(m Model, cap Capability) bool {
-	return CapabilityForModel(m)&cap != 0
+func SupportsLight(m Model, l Light) bool {
+	return slices.Contains(models[m].CapableLights, l)
 }
