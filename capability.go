@@ -60,7 +60,7 @@ var models = map[Model]ModelInfo{
 	},
 
 	// GUESSED, UNSURE
-	ModelA2l:{
+	ModelA2l: {
 		Capabilities: allCapabilities,
 		CapableFans: []Fan{
 			PartCoolingFan,
@@ -68,7 +68,7 @@ var models = map[Model]ModelInfo{
 		CapableLights: []Light{
 			ChamberLight,
 		},
-	}
+	},
 
 	ModelP1S: fullyCapable,
 
