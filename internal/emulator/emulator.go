@@ -86,7 +86,7 @@ func Start(ctx context.Context, cfg *bambulabs_api.Config, port int) (*Emulator,
 		cancel:      cancel,
 		done:        make(chan struct{}),
 		targetModel: cfg.Model,
-		capability:  bambulabs_api.CapabilityAms,
+		capability:  bambulabs_api.CapabilityAnyAms,
 		serial:      cfg.SerialNumber,
 		gcodeState:  bambulabs_api.IDLE,
 	}
