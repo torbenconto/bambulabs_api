@@ -15,6 +15,7 @@ const (
 	ModelUnknown Model = iota
 	ModelA1Mini
 	ModelA1
+	ModelA2l
 	ModelP1S
 	ModelP2S
 	ModelX1E
