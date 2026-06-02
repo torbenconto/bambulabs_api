@@ -2,12 +2,12 @@ package bambulabs_api
 
 import "slices"
 
-type Fan int
+type Fan uint8
 
 const (
-	PartCoolingFan Fan = iota + 1
-	AuxiliaryFan
-	ChamberFan
+	PartCoolingFan Fan = 1
+	AuxiliaryFan   Fan = 2
+	ChamberFan     Fan = 3
 )
 
 func (f Fan) String() string {

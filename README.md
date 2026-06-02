@@ -117,7 +117,6 @@ We welcome contributions to improve this project! If you’d like to contribute,
 
 Please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file for more details on how to contribute.
 
-
 ## Links & Resources
 
 - [Bambulab Official Website](https://www.bambulab.com)

@@ -1,6 +1,6 @@
 package bambulabs_api
 
-type Capability uint64
+type Capability uint8
 
 // We derive light and fan capabilites seperately
 const (
@@ -8,20 +8,22 @@ const (
 	CapabilityAms
 )
 
+var allCapabilities Capability = CapabilityCamera | CapabilityAms
+
 var capabilitiesForModel = map[Model]Capability{
 	ModelUnknown: 0,
-	ModelA1Mini:  CapabilityCamera | CapabilityAms,
-	ModelA1:      CapabilityCamera | CapabilityAms,
+	ModelA1Mini:  allCapabilities,
+	ModelA1:      allCapabilities,
 	ModelP1S:     CapabilityAms,
-	ModelP2S:     CapabilityCamera | CapabilityAms,
-	ModelX1C:     CapabilityCamera | CapabilityAms,
-	ModelX1E:     CapabilityCamera | CapabilityAms,
-	ModelX2D:     CapabilityCamera | CapabilityAms,
-	ModelH2:      CapabilityCamera | CapabilityAms,
-	ModelH2S:     CapabilityCamera | CapabilityAms,
-	ModelH2D:     CapabilityCamera | CapabilityAms,
-	ModelH2DPro:  CapabilityCamera | CapabilityAms,
-	ModelH2C:     CapabilityCamera | CapabilityAms,
+	ModelP2S:     allCapabilities,
+	ModelX1C:     allCapabilities,
+	ModelX1E:     allCapabilities,
+	ModelX2D:     allCapabilities,
+	ModelH2:      allCapabilities,
+	ModelH2S:     allCapabilities,
+	ModelH2D:     allCapabilities,
+	ModelH2DPro:  allCapabilities,
+	ModelH2C:     allCapabilities,
 }
 
 func (c Capability) Has(cap Capability) bool {
