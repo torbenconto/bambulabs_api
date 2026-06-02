@@ -23,24 +23,26 @@ func (f Fan) String() string {
 	}
 }
 
+var allFans = []Fan{PartCoolingFan, AuxiliaryFan, ChamberFan}
+
 var fansForModel = map[Model][]Fan{
 	ModelUnknown: {},
 
 	ModelA1Mini: {PartCoolingFan},
 	ModelA1:     {PartCoolingFan},
 
-	ModelP1S: {PartCoolingFan, AuxiliaryFan, ChamberFan},
-	ModelP2S: {PartCoolingFan, AuxiliaryFan, ChamberFan},
+	ModelP1S: allFans,
+	ModelP2S: allFans,
 
-	ModelX1C: {PartCoolingFan, AuxiliaryFan, ChamberFan},
-	ModelX1E: {PartCoolingFan, AuxiliaryFan, ChamberFan},
-	ModelX2D: {PartCoolingFan, AuxiliaryFan, ChamberFan},
+	ModelX1C: allFans,
+	ModelX1E: allFans,
+	ModelX2D: allFans,
 
-	ModelH2:     {PartCoolingFan, AuxiliaryFan, ChamberFan},
-	ModelH2S:    {PartCoolingFan, AuxiliaryFan, ChamberFan},
-	ModelH2D:    {PartCoolingFan, AuxiliaryFan, ChamberFan},
-	ModelH2DPro: {PartCoolingFan, AuxiliaryFan, ChamberFan},
-	ModelH2C:    {PartCoolingFan, AuxiliaryFan, ChamberFan},
+	ModelH2:     allFans,
+	ModelH2S:    allFans,
+	ModelH2D:    allFans,
+	ModelH2DPro: allFans,
+	ModelH2C:    allFans,
 }
 
 func FansForModel(m Model) []Fan {
