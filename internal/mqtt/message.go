@@ -1,5 +1,7 @@
 package mqtt
 
+import "github.com/torbenconto/bambulabs_api/hms"
+
 type Message struct {
 	Print Print `json:"print"`
 }
@@ -65,6 +67,8 @@ type Print struct {
 	WifiSignal              string        `json:"wifi_signal"`
 	Xcam                    XCam          `json:"xcam"`
 	XcamStatus              string        `json:"xcam_status"`
+
+	HmsErrors []hms.Error `json:"hms"`
 }
 
 type AMS struct {
