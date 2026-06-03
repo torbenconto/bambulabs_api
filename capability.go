@@ -59,6 +59,17 @@ var models = map[Model]ModelInfo{
 		},
 	},
 
+	// GUESSED, UNSURE
+	ModelA2l: {
+		Capabilities: allCapabilities,
+		CapableFans: []Fan{
+			PartCoolingFan,
+		},
+		CapableLights: []Light{
+			ChamberLight,
+		},
+	},
+
 	ModelP1S: fullyCapable,
 
 	ModelP2S: fullyCapable,
