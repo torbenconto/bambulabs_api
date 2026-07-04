@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
@@ -20,10 +21,9 @@ const (
 type MqttConfig struct {
 	Host         net.IP
 	Port         int
+	Username     string
 	SerialNumber string
 	AccessCode   string
-
-	Timeout time.Duration
 }
 
 type MqttClient struct {
@@ -34,6 +34,8 @@ type MqttClient struct {
 	client      paho.Client
 	messageChan chan []byte
 	connected   chan struct{}
+
+	closeOnce sync.Once
 }
 
 func (c *MqttClient) MessageChan() <-chan []byte {
@@ -46,12 +48,10 @@ func NewMqttClient(parent context.Context, cfg *MqttConfig) (*MqttClient, error)
 	opts := paho.NewClientOptions().
 		AddBroker(fmt.Sprintf("mqtts://%s:%d", cfg.Host.String(), cfg.Port)).
 		SetClientID(clientID).
-		SetUsername("bblp").
+		SetUsername(cfg.Username).
 		SetPassword(cfg.AccessCode).
 		SetTLSConfig(&tls.Config{InsecureSkipVerify: true}).
 		SetAutoReconnect(true).
-		SetConnectTimeout(cfg.Timeout).
-		SetWriteTimeout(cfg.Timeout).
 		SetKeepAlive(30 * time.Second)
 
 	client := &MqttClient{
@@ -66,6 +66,7 @@ func NewMqttClient(parent context.Context, cfg *MqttConfig) (*MqttClient, error)
 	opts.SetDefaultPublishHandler(client.handleMessage)
 
 	opts.SetConnectionLostHandler(func(c paho.Client, err error) {
+		<-ctx.Done()
 		log.Printf("MQTT connection lost: %v", err)
 	})
 
@@ -76,11 +77,23 @@ func NewMqttClient(parent context.Context, cfg *MqttConfig) (*MqttClient, error)
 
 func (c *MqttClient) onConnect(client paho.Client) {
 	topic := fmt.Sprintf("device/%s/report", c.config.SerialNumber)
+
 	token := client.Subscribe(topic, 0, c.handleMessage)
 	token.Wait()
 	if token.Error() != nil {
 		return
 	}
+
+	select {
+	case <-tokenDone(token):
+		if token.Error() != nil {
+			log.Printf("MQTT subscribe failed: %v", token.Error())
+			return
+		}
+	case <-c.ctx.Done():
+		return
+	}
+
 	select {
 	case <-c.connected:
 	default:
@@ -90,25 +103,42 @@ func (c *MqttClient) onConnect(client paho.Client) {
 
 func (c *MqttClient) handleMessage(_ paho.Client, msg paho.Message) {
 	select {
+	case <-c.ctx.Done():
+		return
 	case c.messageChan <- msg.Payload():
 	default:
 		// drop msg
 	}
 }
 
-func (c *MqttClient) Connect() error {
-	if token := c.client.Connect(); token.Wait() && token.Error() != nil {
+func (c *MqttClient) Connect(ctx context.Context) error {
+	token := c.client.Connect()
+	select {
+	case <-tokenDone(token):
 		return token.Error()
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.ctx.Done():
+		return c.ctx.Err()
 	}
+}
 
-	return nil
+func (c *MqttClient) WaitConnected(ctx context.Context) error {
+	select {
+	case <-c.connected:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.ctx.Done():
+		return c.ctx.Err()
+	}
 }
 
 func (c *MqttClient) Connected() <-chan struct{} {
 	return c.connected
 }
 
-func (c *MqttClient) Publish(cmd *protocol.Command) error {
+func (c *MqttClient) Publish(ctx context.Context, cmd *protocol.Command) error {
 	json, err := cmd.Marshal()
 	if err != nil {
 		return err
@@ -116,17 +146,35 @@ func (c *MqttClient) Publish(cmd *protocol.Command) error {
 
 	topic := fmt.Sprintf("device/%s/request", c.config.SerialNumber)
 
-	if token := c.client.Publish(topic, qos, false, json); token.Wait() && token.Error() != nil {
-		return token.Error()
-	}
+	token := c.client.Publish(topic, qos, false, json)
 
-	return nil
+	select {
+	case <-tokenDone(token):
+		return token.Error()
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.ctx.Done():
+		return c.ctx.Err()
+	}
 }
 
 func (c *MqttClient) Close() error {
-	c.cancel()
-	close(c.messageChan)
-	c.client.Disconnect(250)
-
+	c.closeOnce.Do(func() {
+		c.cancel()
+		c.client.Disconnect(250)
+	})
 	return nil
+}
+
+func (c *MqttClient) Done() <-chan struct{} {
+	return c.ctx.Done()
+}
+
+func tokenDone(t paho.Token) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		t.Wait()
+		close(done)
+	}()
+	return done
 }

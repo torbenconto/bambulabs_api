@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 )
 
 // Model represents the printers model number
@@ -15,7 +14,7 @@ const (
 	ModelUnknown Model = iota
 	ModelA1Mini
 	ModelA1
-	ModelA2l
+	ModelA2L
 	ModelP1S
 	ModelP2S
 	ModelX1E
@@ -30,19 +29,15 @@ const (
 
 // Core client struct, v0.1.6 and below were sloppy and required manual control of printer structs and the pool abstraction was just layered on top
 // This aims to fix those issues by providing a unified interface for printer interaction
-
 type Client struct {
 	printers sync.Map
 
 	ctx    context.Context
 	cancel context.CancelFunc
-
-	wg sync.WaitGroup
 }
 
 func NewClient(parent context.Context) *Client {
 	ctx, cancel := context.WithCancel(parent)
-
 	return &Client{
 		ctx:    ctx,
 		cancel: cancel,
@@ -53,23 +48,17 @@ func (c *Client) Add(cfg Config) (Printer, error) {
 	if _, ok := c.printers.Load(cfg.SerialNumber); ok {
 		return nil, ErrPrinterExists
 	}
+
 	p, err := NewPrinter(c.ctx, cfg)
 	if err != nil {
-		return nil, err
-	}
-
-	ctx, cancel := context.WithTimeout(c.ctx, 10*time.Second)
-	defer cancel()
-	if err := p.waitForConnection(ctx); err != nil {
-		_ = p.Close()
 		return nil, fmt.Errorf("connect to %s: %w", cfg.SerialNumber, err)
 	}
 
-	_, exists := c.printers.LoadOrStore(cfg.SerialNumber, p)
-	if exists {
+	if _, exists := c.printers.LoadOrStore(cfg.SerialNumber, p); exists {
 		_ = p.Close()
 		return nil, ErrPrinterExists
 	}
+
 	return p, nil
 }
 
@@ -77,7 +66,6 @@ func (c *Client) Load(serial string) (Printer, error) {
 	if p, ok := c.printers.Load(serial); ok {
 		return p.(Printer), nil
 	}
-
 	return nil, ErrPrinterNotFound
 }
 
@@ -86,7 +74,6 @@ func (c *Client) Remove(serial string) error {
 	if !ok {
 		return ErrPrinterNotFound
 	}
-
 	p := v.(Printer)
 	return p.Close()
 }
@@ -100,12 +87,15 @@ func (c *Client) Range(fn func(Printer) bool) {
 func (c *Client) Close() error {
 	c.cancel()
 
-	c.printers.Range(func(_, value any) bool {
+	var firstErr error
+	c.printers.Range(func(key, value any) bool {
 		p := value.(Printer)
-		_ = p.Close()
+		if err := p.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+		c.printers.Delete(key)
 		return true
 	})
 
-	c.wg.Wait()
-	return nil
+	return firstErr
 }

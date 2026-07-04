@@ -14,18 +14,18 @@ import (
 var (
 	cfg = bambulabs_api.Config{
 		Host:         net.ParseIP("127.0.0.1"),
-		Port:         port,
+		MQTTPort:     mqttPort,
 		Model:        bambulabs_api.ModelX1C,
 		AccessCode:   "test1234",
 		SerialNumber: "BBLX1C0001",
 	}
-	emu  *emulator.Emulator
-	port = 18883
+	emu      *emulator.Emulator
+	mqttPort = 18883
 )
 
 func TestMain(m *testing.M) {
 	var err error
-	emu, err = emulator.Start(context.Background(), &cfg, port)
+	emu, err = emulator.Start(context.Background(), &cfg, mqttPort)
 	if err != nil {
 		panic("start emulator: " + err.Error())
 	}

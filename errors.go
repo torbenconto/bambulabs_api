@@ -8,4 +8,6 @@ var (
 
 	ErrLightNotSupported = errors.New("light not supported by this printer model")
 	ErrFanNotSupported   = errors.New("fan not supported by this printer model")
+
+	ErrFTPUnavailable = errors.New("ftp connection unavailable")
 )

@@ -48,54 +48,12 @@ You can find the **IP Address** and **Access Code** in the printer’s network s
 - [Find your printer's Access Code](https://intercom.help/octoeverywhere/en/articles/9028357-find-your-bambu-lab-printer-access-code)
 - [Find your printer's Serial Number](https://wiki.bambulab.com/en/general/find-sn)
 
-Once you have the necessary details, you can create and connect to the printer with the following code:
+## Quickstart
+For a quickstart guide, please see [quickstart.md](docs/quickstart.md).
 
-```go
-// Replace the values below with the ones for your printer
-config := &bambulabs_api.Config{
-    Host:         net.ParseIP("12.34.56.78"),
-    Model:        bambulabs_api.ModelUnknown // Change to your printer's model
-    AccessCode:   "accessCode"
-    SerialNumber: "serialNumber"
-}
-new_client := bambulabs_api.NewClient(context.background())
-printer, err := new_client.Add(config)
-if err != nil {
-    panic(err)
-}
-new_client.Close()
-```
-
-Adding the printer to the config will immediately initiate a connection attempt to the given IP via both MQTT and FTP. The client is an abstraction which holds all your current printers, and allows you easily manage their connections, data, commands, etc.
-
-While the client stores your printer internally, you can also use the printer object returned by `Add()`, they are functionally identical. To retrieve a printer object from the client, you can use `Load()`.
-Example:
-
-```go
-loaded_printer, err := new_client.Load("serialNumber")
-if err != nil {
-    panic(err)
-}
-```
-
-You can iterate over stored printers using the `Range()` function:
-
-```go
-new_client.Range(func(p Printer) bool {
-    fmt.Println(p.SerialNumber)
-    return true
-})
-```
-
-When you're done with the client, close it using the `Close()` method:
-
-```go
-new_client.Close()
-```
-
-### Whats the significance of the model variable?
-The model variable within the `bambulabs_api.Config` struct is an extremely valuable variable, it's used to communicate your printer's constraints to the package. Ensure this variable is accurate or your program may throw an error or behave unexpectedly. If you're unsure of your model, or are using the program for basic compatibility testing, use `bambulabs_api.ModelUnknown`, this model ensures a conservative constraint list, maximizing compatibility.
-
+## Usage
+For library usage, please see [index.md](docs/index.md).
+Additionally, see [golang api reference](https://pkg.go.dev/github.com/torbenconto/bambulabs_api) for all available functions and types.
 
 ## Development
 

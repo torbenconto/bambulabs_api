@@ -60,7 +60,7 @@ var models = map[Model]ModelInfo{
 	},
 
 	// GUESSED, UNSURE
-	ModelA2l: {
+	ModelA2L: {
 		Capabilities: allCapabilities,
 		CapableFans: []Fan{
 			PartCoolingFan,
