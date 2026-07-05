@@ -1,237 +1,180 @@
 package mqtt
 
 import (
+	"context"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"log"
-	"reflect"
+	"net"
 	"sync"
 	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/torbenconto/bambulabs_api/internal/protocol"
 )
 
 const (
-	clientID       = "golang-bambulabs-api"
-	topicTemplate  = "device/%s/report"
-	commandTopic   = "device/%s/request"
-	qos            = 0
-	updateInterval = 10 * time.Second
+	clientID = "torbenconto/bambulabs_api"
+	qos      = 0
 )
 
-// ClientConfig holds the configuration details for the MQTT client.
-type ClientConfig struct {
-	Host       string
-	Port       int
-	Serial     string
-	Username   string
-	AccessCode string
-	Timeout    time.Duration
+type MqttConfig struct {
+	Host         net.IP
+	Port         int
+	Username     string
+	SerialNumber string
+	AccessCode   string
 }
 
-// Client represents the MQTT client.
-type Client struct {
-	config      *ClientConfig
+type MqttClient struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	config      *MqttConfig
 	client      paho.Client
-	mutex       sync.Mutex
-	data        Message
-	lastUpdate  time.Time
 	messageChan chan []byte
-	doneChan    chan struct{}
-	ticker      *time.Ticker
+	connected   chan struct{}
+
+	closeOnce sync.Once
 }
 
-// NewClient initializes a new MQTT client.
-func NewClient(config *ClientConfig) *Client {
-	// Need to add an option to set OrderMatters for this
+func (c *MqttClient) MessageChan() <-chan []byte {
+	return c.messageChan
+}
+
+func NewMqttClient(parent context.Context, cfg *MqttConfig) (*MqttClient, error) {
+	ctx, cancel := context.WithCancel(parent)
+
 	opts := paho.NewClientOptions().
-		AddBroker(fmt.Sprintf("mqtts://%s:%d", config.Host, config.Port)).
+		AddBroker(fmt.Sprintf("mqtts://%s:%d", cfg.Host.String(), cfg.Port)).
 		SetClientID(clientID).
-		SetUsername(config.Username).
-		SetPassword(config.AccessCode).
+		SetUsername(cfg.Username).
+		SetPassword(cfg.AccessCode).
 		SetTLSConfig(&tls.Config{InsecureSkipVerify: true}).
 		SetAutoReconnect(true).
-		SetConnectTimeout(10 * time.Second).
-		SetWriteTimeout(10 * time.Second).
 		SetKeepAlive(30 * time.Second)
 
-	client := &Client{
-		config:      config,
+	client := &MqttClient{
+		config:      cfg,
+		ctx:         ctx,
 		messageChan: make(chan []byte, 200),
-		doneChan:    make(chan struct{}),
-		ticker:      time.NewTicker(updateInterval),
+		cancel:      cancel,
+		connected:   make(chan struct{}),
 	}
 
 	opts.SetOnConnectHandler(client.onConnect)
-	opts.SetConnectionLostHandler(client.onConnectionLost)
 	opts.SetDefaultPublishHandler(client.handleMessage)
+
+	opts.SetConnectionLostHandler(func(c paho.Client, err error) {
+		<-ctx.Done()
+		log.Printf("MQTT connection lost: %v", err)
+	})
 
 	client.client = paho.NewClient(opts)
 
-	return client
+	return client, nil
 }
 
-// Connect establishes a connection to the MQTT broker.
-func (c *Client) Connect() error {
-	token := c.client.Connect()
-	if token.Wait() && token.Error() != nil {
-		return fmt.Errorf("failed to connect to MQTT broker: %w", token.Error())
-	}
-	log.Println("Connected to MQTT broker")
-	go c.processMessages()
-	go c.periodicUpdate()
-	return nil
-}
+func (c *MqttClient) onConnect(client paho.Client) {
+	topic := fmt.Sprintf("device/%s/report", c.config.SerialNumber)
 
-// Disconnect gracefully closes the connection.
-func (c *Client) Disconnect() {
-	close(c.doneChan)
-	c.ticker.Stop()
-	c.client.Disconnect(250)
-	log.Println("Disconnected from MQTT broker")
-}
-
-// Publish sends a command message to the MQTT broker.
-func (c *Client) Publish(command *Command) error {
-	rawCommand, err := command.JSON()
-	if err != nil {
-		return fmt.Errorf("failed to marshal command: %w", err)
-	}
-
-	topic := fmt.Sprintf(commandTopic, c.config.Serial)
-	token := c.client.Publish(topic, qos, false, rawCommand)
-	if token.Wait() && token.Error() != nil {
-		return fmt.Errorf("failed to publish to topic %s: %w", topic, token.Error())
-	}
-
-	log.Printf("Published command to topic %s", topic)
-	return nil
-}
-
-// Data retrieves the latest data and triggers an update if stale.
-func (c *Client) Data() Message {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	if time.Since(c.lastUpdate) > c.config.Timeout {
-		go c.update()
-	}
-	return c.data
-}
-
-// Private methods
-
-// update triggers a data refresh by publishing a "push_all" command.
-func (c *Client) update() {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	if time.Since(c.lastUpdate) < c.config.Timeout {
+	token := client.Subscribe(topic, 0, c.handleMessage)
+	token.Wait()
+	if token.Error() != nil {
 		return
 	}
 
-	c.lastUpdate = time.Now()
-	command := NewCommand(Pushing).AddCommandField("pushall")
-	if err := c.Publish(command); err != nil {
-		log.Printf("Failed to publish update command: %v", err)
-	}
-}
-
-func (c *Client) periodicUpdate() {
-	for {
-		select {
-		case <-c.ticker.C:
-			c.update()
-		case <-c.doneChan:
-			return
-		}
-	}
-}
-
-// onConnect subscribes to the data topic.
-func (c *Client) onConnect(client paho.Client) {
-	topic := fmt.Sprintf(topicTemplate, c.config.Serial)
-	token := client.Subscribe(topic, qos, nil)
-	if token.Wait() && token.Error() != nil {
-		log.Printf("Failed to subscribe to topic %s: %v", topic, token.Error())
-		return
-	}
-	log.Printf("Subscribed to topic %s", topic)
-}
-
-// onConnectionLost logs connection loss.
-func (c *Client) onConnectionLost(client paho.Client, err error) {
-	log.Printf("Connection lost: %v", err)
-}
-
-// handleMessage queues incoming messages for processing.
-func (c *Client) handleMessage(client paho.Client, msg paho.Message) {
 	select {
-	case c.messageChan <- msg.Payload():
-		log.Printf("Message received: %s", msg.Topic())
-	default:
-		log.Println("Message dropped: channel full")
-	}
-}
-
-// processMessages processes incoming messages from the channel.
-func (c *Client) processMessages() {
-	for {
-		select {
-		case payload := <-c.messageChan:
-			c.processPayload(payload)
-		case <-c.doneChan:
+	case <-tokenDone(token):
+		if token.Error() != nil {
+			log.Printf("MQTT subscribe failed: %v", token.Error())
 			return
 		}
-	}
-}
-
-// processPayload updates the client data with the incoming message.
-func (c *Client) processPayload(payload []byte) {
-	var received Message
-	if err := json.Unmarshal(payload, &received); err != nil {
-		log.Printf("Failed to unmarshal message: %v", err)
+	case <-c.ctx.Done():
 		return
 	}
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	mergeMessages(&c.data, &received)
-	//log.Printf("Updated data: %+v", c.data)
-}
-
-// mergeMessages recursively merges the existing and new messages.
-func mergeMessages(existing, new *Message) {
-	// Use reflection to iterate through the fields of the "Print" struct.
-	mergeStructs(&existing.Print, &new.Print)
-}
-
-// mergeStructs dynamically merges fields of two structs using reflection.
-func mergeStructs(existing, new interface{}) {
-	existingVal := reflect.ValueOf(existing).Elem()
-	newVal := reflect.ValueOf(new).Elem()
-
-	// Iterate over each field in the struct.
-	for i := 0; i < existingVal.NumField(); i++ {
-		field := existingVal.Field(i)
-
-		// Ensure that the field is a valid field to merge.
-		newField := newVal.Field(i)
-		if !newField.IsValid() {
-			continue
-		}
-
-		// Only merge if the field is non-zero in the new struct.
-		if !newField.IsZero() {
-			// If it's a struct, recursively merge it.
-			if newField.Kind() == reflect.Struct {
-				mergeStructs(field.Addr().Interface(), newField.Addr().Interface())
-			} else {
-				// Otherwise, set the field to the new value.
-				field.Set(newField)
-			}
-		}
+	select {
+	case <-c.connected:
+	default:
+		close(c.connected)
 	}
+}
+
+func (c *MqttClient) handleMessage(_ paho.Client, msg paho.Message) {
+	select {
+	case <-c.ctx.Done():
+		return
+	case c.messageChan <- msg.Payload():
+	default:
+		// drop msg
+	}
+}
+
+func (c *MqttClient) Connect(ctx context.Context) error {
+	token := c.client.Connect()
+	select {
+	case <-tokenDone(token):
+		return token.Error()
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.ctx.Done():
+		return c.ctx.Err()
+	}
+}
+
+func (c *MqttClient) WaitConnected(ctx context.Context) error {
+	select {
+	case <-c.connected:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.ctx.Done():
+		return c.ctx.Err()
+	}
+}
+
+func (c *MqttClient) Connected() <-chan struct{} {
+	return c.connected
+}
+
+func (c *MqttClient) Publish(ctx context.Context, cmd *protocol.Command) error {
+	json, err := cmd.Marshal()
+	if err != nil {
+		return err
+	}
+
+	topic := fmt.Sprintf("device/%s/request", c.config.SerialNumber)
+
+	token := c.client.Publish(topic, qos, false, json)
+
+	select {
+	case <-tokenDone(token):
+		return token.Error()
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.ctx.Done():
+		return c.ctx.Err()
+	}
+}
+
+func (c *MqttClient) Close() error {
+	c.closeOnce.Do(func() {
+		c.cancel()
+		c.client.Disconnect(250)
+	})
+	return nil
+}
+
+func (c *MqttClient) Done() <-chan struct{} {
+	return c.ctx.Done()
+}
+
+func tokenDone(t paho.Token) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		t.Wait()
+		close(done)
+	}()
+	return done
 }

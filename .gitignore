@@ -21,3 +21,8 @@ go.work.sum
 # IDE configuration files
 .idea
 .vscode
+
+cmd/test
+
+# mac
+.DS*

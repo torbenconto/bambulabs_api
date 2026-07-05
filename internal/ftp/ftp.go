@@ -1,103 +1,133 @@
 package ftp
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/secsy/goftp"
-	"os"
+	"io"
+	"sync"
+
+	goftp "github.com/jlaffaye/ftp"
 )
 
-type ClientConfig struct {
+type FtpClientConfig struct {
 	Host       string
 	Port       int
 	Username   string
 	AccessCode string
 }
 
-type Client struct {
-	config *ClientConfig
-	conn   *goftp.Client
+type FtpClient struct {
+	config *FtpClientConfig
+	conn   *goftp.ServerConn
+
+	mu sync.Mutex
+
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	closeOnce sync.Once
 }
 
-func NewClient(config *ClientConfig) *Client {
-	return &Client{
-		config: config,
-		conn:   nil,
-	}
-}
+func NewFtpClient(parent context.Context, cfg *FtpClientConfig) (*FtpClient, error) {
+	lifecycleCtx, cancel := context.WithCancel(parent)
 
-// Connect connects to the ftp server of a bambu printer.
-// This function is working and has been tested on:
-// - [x] X1 Carbon
-func (c *Client) Connect() error {
-	config := goftp.Config{
-		User:     c.config.Username,
-		Password: c.config.AccessCode,
-		TLSConfig: &tls.Config{
-			InsecureSkipVerify: true,
-			ClientSessionCache: tls.NewLRUClientSessionCache(0),
-			ServerName:         c.config.Host,
-		},
-
-		TLSMode: goftp.TLSImplicit,
-	}
-
-	address := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
-	conn, err := goftp.DialConfig(config, address)
+	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	conn, err := goftp.Dial(addr, goftp.DialWithContext(parent), goftp.DialWithTLS(&tls.Config{
+		InsecureSkipVerify: true,
+		ServerName:         cfg.Host,
+		ClientSessionCache: tls.NewLRUClientSessionCache(0),
+	}))
 	if err != nil {
-		return err
+		cancel()
+		return nil, err
 	}
 
-	c.conn = conn
-	return nil
+	c := &FtpClient{
+		config: cfg,
+		conn:   conn,
+		ctx:    lifecycleCtx,
+		cancel: cancel,
+	}
+
+	if err := c.Login(parent); err != nil {
+		cancel()
+		_ = conn.Quit()
+		return nil, fmt.Errorf("ftp login failed: %w", err)
+	}
+
+	return c, nil
 }
 
-// Disconnect disconnects from the ftp server.
-func (c *Client) Disconnect() error {
-	if c.conn != nil {
-		err := c.conn.Close()
+func (c *FtpClient) Login(ctx context.Context) error {
+	return c.run(ctx, func() error {
+		return c.conn.Login(c.config.Username, c.config.AccessCode)
+	})
+}
+
+func (c *FtpClient) List(ctx context.Context, path string) ([]*goftp.Entry, error) {
+	var entries []*goftp.Entry
+	err := c.run(ctx, func() error {
+		var innerErr error
+		entries, innerErr = c.conn.List(path)
+		return innerErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
+func (c *FtpClient) Retrieve(ctx context.Context, path string, w io.Writer) error {
+	return c.run(ctx, func() error {
+		resp, err := c.conn.Retr(path)
 		if err != nil {
 			return err
 		}
-		c.conn = nil
-	}
-	return nil
+		defer resp.Close()
+
+		_, err = io.Copy(w, resp)
+		return err
+	})
 }
 
-// StoreFile stores file "file" into "path" on the server.
-func (c *Client) StoreFile(path string, file os.File) error {
-	if c.conn == nil {
-		return fmt.Errorf("not connected")
-	}
-
-	return c.conn.Store(path, &file)
+func (c *FtpClient) Store(ctx context.Context, path string, r io.Reader) error {
+	return c.run(ctx, func() error {
+		return c.conn.Stor(path, r)
+	})
 }
 
-// RetrieveFile retrieves file "path" on the server and returns it's contents as a buffer.
-func (c *Client) RetrieveFile(path string) (os.File, error) {
-	if c.conn == nil {
-		return os.File{}, fmt.Errorf("not connected")
-	}
-
-	var data os.File
-	err := c.conn.Retrieve(path, &data)
-	return data, err
+func (c *FtpClient) Delete(ctx context.Context, path string) error {
+	return c.run(ctx, func() error {
+		return c.conn.Delete(path)
+	})
 }
 
-// ListDir lists a given directory on the server and returns a list of the files and directories it contains as an array of os.FileInfo.
-func (c *Client) ListDir(path string) ([]os.FileInfo, error) {
-	if c.conn == nil {
-		return []os.FileInfo{}, fmt.Errorf("not connected")
-	}
-
-	return c.conn.ReadDir(path)
+func (c *FtpClient) Done() <-chan struct{} {
+	return c.ctx.Done()
 }
 
-// DeleteFile deletes file "path" on the ser
-func (c *Client) DeleteFile(path string) error {
-	if c.conn == nil {
-		return fmt.Errorf("not connected")
-	}
+func (c *FtpClient) Close() error {
+	var err error
+	c.closeOnce.Do(func() {
+		c.cancel()
+		err = c.conn.Quit()
+	})
+	return err
+}
 
-	return c.conn.Delete(path)
+func (c *FtpClient) run(ctx context.Context, fn func() error) error {
+	done := make(chan error, 1)
+	go func() {
+		done <- fn()
+	}()
+
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.ctx.Done():
+		return c.ctx.Err()
+	}
 }

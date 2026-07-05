@@ -1,18 +1,15 @@
 module github.com/torbenconto/bambulabs_api
 
-go 1.23.5
+go 1.26
+
+require github.com/eclipse/paho.mqtt.golang v1.5.1
 
 require (
-	github.com/eclipse/paho.mqtt.golang v1.5.0
-	github.com/secsy/goftp v0.0.0-20200609142545-aa2de14babf4
-	github.com/stretchr/testify v1.11.1
-)
-
-require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/net v0.34.0 // indirect
-	golang.org/x/sync v0.10.0 // indirect
+	github.com/jlaffaye/ftp v0.2.1 // indirect
+	github.com/mochi-mqtt/server/v2 v2.7.9 // indirect
+	github.com/rs/xid v1.6.0 // indirect
+	golang.org/x/net v0.50.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
