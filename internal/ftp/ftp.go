@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"os"
 	"sync"
 
 	goftp "github.com/jlaffaye/ftp"
@@ -62,7 +63,7 @@ func (c *FtpClient) Connect(ctx context.Context) error {
 	return nil
 }
 
-func (c *FtpClient) List(path string) ([]*goftp.Entry, error) {
+func (c *FtpClient) List(path string) ([]os.FileInfo, error) {
 	var entries []*goftp.Entry
 
 	if err := c.run(func() error {
@@ -73,7 +74,22 @@ func (c *FtpClient) List(path string) ([]*goftp.Entry, error) {
 		return nil, err
 	}
 
-	return entries, nil
+	var convertedEntries []os.FileInfo
+	for _, entry := range entries {
+		convertedEntry := FileInfo{
+			name:    entry.Name,
+			size:    int64(entry.Size), // will never approach math.MaxInt64
+			modTime: entry.Time,
+			isDir:   false,
+		}
+
+		if entry.Type == goftp.EntryTypeFolder {
+			convertedEntry.isDir = true
+		}
+
+	}
+
+	return convertedEntries, nil
 }
 
 func (c *FtpClient) Retrieve(path string, w io.Writer) error {
