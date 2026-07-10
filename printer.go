@@ -74,7 +74,7 @@ func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 		ftpPort = 990
 	}
 
-	mc, err := mqtt.NewMqttClient(ctx, &mqtt.MqttConfig{
+	mc, err := mqtt.NewMqttClient(&mqtt.MqttConfig{
 		Host:         cfg.Host,
 		Port:         mqttPort,
 		SerialNumber: cfg.SerialNumber,
