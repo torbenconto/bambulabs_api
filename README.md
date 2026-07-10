@@ -11,10 +11,14 @@
 This repository provides a **Golang** library to interface with **Bambulabs 3D printers** via network protocols. It allows easy integration of Bambulabs printers into your Go applications, providing access to printer data, control over printer features, and more.
 
 This project does not support the bambulabs cloud api, but it's sister project [bambulabs_cloud_api](https://github.com/torbenconto/bambulabs_cloud_api) does.
-<div align="center">
 
-[![Star History Chart](https://api.star-history.com/svg?repos=torbenconto/bambulabs_api,torbenconto/bambulabs_cloud_api&type=Date)](https://star-history.com/#torbenconto/bambulabs_api&torbenconto/bambulabs_cloud_api&Date)
-</div>
+<a href="https://www.star-history.com/?type=date&repos=torbenconto%2Fbambulabs_api%2Ctorbenconto%2Fbambulabs_cloud_api">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=torbenconto/bambulabs_api%2Ctorbenconto/bambulabs_cloud_api&type=date&theme=dark&legend=top-left&sealed_token=7oIk67CVptQFze8TgWslDb09AAI4Cetbu5Rgqngz1iPOIqhNthpYa42P5Qggd8YoZQYDUozfpdG2-BXzw_vg3uFpfnUx0L5sd1IE7FtfcaUz_1U8cpF8ffE8ZUmrkyGgBw46Go4vW_OyK9kBLAXcBU2hCSUpmOzEd00ZAANYcR-r5-e6CgrSCi9q79zI" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=torbenconto/bambulabs_api%2Ctorbenconto/bambulabs_cloud_api&type=date&legend=top-left&sealed_token=7oIk67CVptQFze8TgWslDb09AAI4Cetbu5Rgqngz1iPOIqhNthpYa42P5Qggd8YoZQYDUozfpdG2-BXzw_vg3uFpfnUx0L5sd1IE7FtfcaUz_1U8cpF8ffE8ZUmrkyGgBw46Go4vW_OyK9kBLAXcBU2hCSUpmOzEd00ZAANYcR-r5-e6CgrSCi9q79zI" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=torbenconto/bambulabs_api%2Ctorbenconto/bambulabs_cloud_api&type=date&legend=top-left&sealed_token=7oIk67CVptQFze8TgWslDb09AAI4Cetbu5Rgqngz1iPOIqhNthpYa42P5Qggd8YoZQYDUozfpdG2-BXzw_vg3uFpfnUx0L5sd1IE7FtfcaUz_1U8cpF8ffE8ZUmrkyGgBw46Go4vW_OyK9kBLAXcBU2hCSUpmOzEd00ZAANYcR-r5-e6CgrSCi9q79zI" />
+ </picture>
+</a>
 
 ## Table of Contents
 
