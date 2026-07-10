@@ -7,14 +7,13 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"sync/atomic"
 	"time"
 
 	"github.com/torbenconto/bambulabs_api/internal/ftp"
 	"github.com/torbenconto/bambulabs_api/internal/mqtt"
 	"github.com/torbenconto/bambulabs_api/internal/protocol"
-
-	goftp "github.com/jlaffaye/ftp"
 )
 
 type Config struct {
@@ -40,7 +39,7 @@ type Printer interface {
 	SetFan(ctx context.Context, fan Fan, speed uint8) error
 	SendGcode(ctx context.Context, input []string) error
 
-	ListFiles(path string) ([]*goftp.Entry, error)
+	ListFiles(path string) ([]os.FileInfo, error)
 	DownloadFile(path string, w io.Writer) error
 	UploadFile(path string, r io.Reader) error
 	DeleteFile(path string) error
@@ -202,7 +201,7 @@ func (p *printer) State() (*mqtt.Message, bool) {
 
 // files (FTP)
 
-func (p *printer) ListFiles(path string) ([]*goftp.Entry, error) {
+func (p *printer) ListFiles(path string) ([]os.FileInfo, error) {
 	if p.ftp == nil {
 		return nil, ErrFTPUnavailable
 	}
