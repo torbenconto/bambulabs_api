@@ -22,10 +22,12 @@ For more information on how to obtain these values, see the [README](../README.m
 
 Once you have these values, you can connect to your printer using the `bambulabs_api` library.
 
-The library uses a central `Client` struct to manage connections and state. You can create a client using standard Go idioms. `NewClient` takes in a context for lifetime management.
+The library uses a central `Client` struct to manage connections and state. You can create a client using standard Go idioms. `NewClient` takes a context for lifetime management.
 
 ```go
-client, err := bambulabs_api.NewClient(context.Background())
+ctx := context.Background()
+
+client, err := bambulabs_api.NewClient(ctx)
 ```
 
 Once you have obtained a `Client` instance, you can add your printer to the client by calling `Add` and passing in a `Config` struct with your printer's IP address, serial number, model, and local access code.
@@ -48,12 +50,20 @@ To see the list of supported models and their respective Model field values, see
 
 `Config` also accepts optional `MQTTPort` and `FTPPort` fields if your printer uses non-default ports; if left unset they default to `8883` (MQTT over TLS) and `990` (FTP over implicit TLS) respectively.
 
-Now that you have a `Printer` instance, you can interact with your printer using the various methods available. Not every method is available on every printer model, and not every method will be covered in this brief quickstart guide.
+Now that you have a `Printer` instance, you can interact with your printer using the various methods available. Methods that communicate over MQTT accept a `context.Context` to allow cancellation and deadlines. Not every method is available on every printer model, and not every method will be covered in this brief quickstart guide.
+
+We'll use a simple 5 second timeout in this case, but feel free to just use `context.Background()`, the library provides a sane deafult timeout of 10 seconds when none is supplied.
+
+```go
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+```
+
 
 - Request an update and read the last-known state
 
 ```go
-if err := printer.RequestUpdate(); err != nil {
+if err := printer.RequestUpdate(ctx); err != nil {
     log.Printf("request update failed: %v", err)
 }
 
@@ -67,7 +77,7 @@ if st, ok := printer.State(); ok {
 - Control lights (models may not support every light)
 
 ```go
-if err := printer.SetLight(bambulabs_api.ChamberLight, bambulabs_api.LightOn); err != nil {
+if err := printer.SetLight(ctx, bambulabs_api.ChamberLight, bambulabs_api.LightOn); err != nil {
     log.Printf("set light: %v", err)
 }
 ```
@@ -76,7 +86,7 @@ if err := printer.SetLight(bambulabs_api.ChamberLight, bambulabs_api.LightOn); e
 
 ```go
 // speed is 0-255
-if err := printer.SetFan(bambulabs_api.ChamberFan, 255); err != nil {
+if err := printer.SetFan(ctx, bambulabs_api.ChamberFan, 255); err != nil {
     log.Printf("set fan: %v", err)
 }
 ```
@@ -84,14 +94,14 @@ if err := printer.SetFan(bambulabs_api.ChamberFan, 255); err != nil {
 - Send raw G-code lines
 
 ```go
-if err := printer.SendGcode([]string{"G28 ; home", "G1 X10 Y10 F600"}); err != nil {
+if err := printer.SendGcode(ctx, []string{"G28 ; home", "G1 X10 Y10 F600"}); err != nil {
     log.Printf("send gcode: %v", err)
 }
 ```
 
 ## Files (FTP)
 
-In addition to MQTT-based telemetry and control, the library exposes basic file operations over the printer's FTP connection. This is useful for listing, uploading, or downloading files. For example: 3MF/G-code files on the printer's SD card.
+In addition to MQTT-based telemetry and control, the library exposes basic file operations over the printer's FTP connection. This is useful for listing, uploading, or downloading files. For example: 3MF/G-code files on the printer's SD card. FTP operations are **not** context-aware because the underlying FTP client does not support cancelling active transfers. File operations are serialized internally to ensure safe access to the printer's FTP connection.
 
 **Note:** FTP connectivity is optional. If it couldn't be established when the printer was added, file methods return `bambulabs_api.ErrFTPUnavailable` rather than failing printer setup entirely. Check for this error if you want to distinguish "not connected" from other failures:
 

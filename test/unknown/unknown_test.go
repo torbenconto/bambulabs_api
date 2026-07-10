@@ -73,7 +73,7 @@ func TestUnsolicitedUpdate(t *testing.T) {
 func TestSolicitedUpdate(t *testing.T) {
 	_, p := client(t)
 
-	if err := p.RequestUpdate(); err != nil {
+	if err := p.RequestUpdate(context.Background()); err != nil {
 		t.Fatalf("request update: %v", err)
 	}
 

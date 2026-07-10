@@ -21,65 +21,63 @@ type FtpClient struct {
 	config *FtpClientConfig
 	conn   *goftp.ServerConn
 
-	mu sync.Mutex
-
-	ctx    context.Context
-	cancel context.CancelFunc
-
+	mu        sync.Mutex
 	closeOnce sync.Once
+	stop      chan struct{}
 }
 
-func NewFtpClient(parent context.Context, cfg *FtpClientConfig) (*FtpClient, error) {
-	lifecycleCtx, cancel := context.WithCancel(parent)
-
-	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-	conn, err := goftp.Dial(addr, goftp.DialWithContext(parent), goftp.DialWithTLS(&tls.Config{
-		InsecureSkipVerify: true,
-		ServerName:         cfg.Host,
-		ClientSessionCache: tls.NewLRUClientSessionCache(0),
-	}))
-	if err != nil {
-		cancel()
-		return nil, err
-	}
-
-	c := &FtpClient{
+func NewFtpClient(cfg *FtpClientConfig) *FtpClient {
+	return &FtpClient{
 		config: cfg,
-		conn:   conn,
-		ctx:    lifecycleCtx,
-		cancel: cancel,
+		stop:   make(chan struct{}),
 	}
-
-	if err := c.Login(parent); err != nil {
-		cancel()
-		_ = conn.Quit()
-		return nil, fmt.Errorf("ftp login failed: %w", err)
-	}
-
-	return c, nil
 }
 
-func (c *FtpClient) Login(ctx context.Context) error {
-	return c.run(ctx, func() error {
-		return c.conn.Login(c.config.Username, c.config.AccessCode)
-	})
-}
+func (c *FtpClient) Connect(ctx context.Context) error {
+	addr := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
 
-func (c *FtpClient) List(ctx context.Context, path string) ([]*goftp.Entry, error) {
-	var entries []*goftp.Entry
-	err := c.run(ctx, func() error {
-		var innerErr error
-		entries, innerErr = c.conn.List(path)
-		return innerErr
-	})
+	conn, err := goftp.Dial(
+		addr,
+		goftp.DialWithContext(ctx),
+		goftp.DialWithTLS(&tls.Config{
+			InsecureSkipVerify: true,
+			ServerName:         c.config.Host,
+		}),
+	)
 	if err != nil {
+		return err
+	}
+
+	c.mu.Lock()
+	c.conn = conn
+	c.mu.Unlock()
+
+	if err := c.run(func() error {
+		return c.conn.Login(c.config.Username, c.config.AccessCode)
+	}); err != nil {
+		_ = conn.Quit()
+		return fmt.Errorf("ftp login failed: %w", err)
+	}
+
+	return nil
+}
+
+func (c *FtpClient) List(path string) ([]*goftp.Entry, error) {
+	var entries []*goftp.Entry
+
+	if err := c.run(func() error {
+		var err error
+		entries, err = c.conn.List(path)
+		return err
+	}); err != nil {
 		return nil, err
 	}
+
 	return entries, nil
 }
 
-func (c *FtpClient) Retrieve(ctx context.Context, path string, w io.Writer) error {
-	return c.run(ctx, func() error {
+func (c *FtpClient) Retrieve(path string, w io.Writer) error {
+	return c.run(func() error {
 		resp, err := c.conn.Retr(path)
 		if err != nil {
 			return err
@@ -91,43 +89,51 @@ func (c *FtpClient) Retrieve(ctx context.Context, path string, w io.Writer) erro
 	})
 }
 
-func (c *FtpClient) Store(ctx context.Context, path string, r io.Reader) error {
-	return c.run(ctx, func() error {
+func (c *FtpClient) Store(path string, r io.Reader) error {
+	return c.run(func() error {
 		return c.conn.Stor(path, r)
 	})
 }
 
-func (c *FtpClient) Delete(ctx context.Context, path string) error {
-	return c.run(ctx, func() error {
+func (c *FtpClient) Delete(path string) error {
+	return c.run(func() error {
 		return c.conn.Delete(path)
 	})
 }
 
 func (c *FtpClient) Done() <-chan struct{} {
-	return c.ctx.Done()
+	return c.stop
 }
 
 func (c *FtpClient) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	var err error
 	c.closeOnce.Do(func() {
-		c.cancel()
-		err = c.conn.Quit()
+		close(c.stop)
+		if c.conn != nil {
+			err = c.conn.Quit()
+			c.conn = nil
+		}
 	})
+
 	return err
 }
 
-func (c *FtpClient) run(ctx context.Context, fn func() error) error {
-	done := make(chan error, 1)
-	go func() {
-		done <- fn()
-	}()
+func (c *FtpClient) run(fn func() error) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	select {
-	case err := <-done:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-c.ctx.Done():
-		return c.ctx.Err()
+	case <-c.stop:
+		return ErrClosed
+	default:
 	}
+
+	if c.conn == nil {
+		return ErrClosed
+	}
+
+	return fn()
 }
