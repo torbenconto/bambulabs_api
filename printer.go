@@ -26,7 +26,8 @@ type Config struct {
 	SerialNumber string
 }
 
-const defaultOpTimeout time.Duration = 10 * time.Second
+// maximumOpTimeout represents the maximum timeout allowed, methods effectively use min(user-provided-timeout, maximumOpTimeout), issue https://github.com/torbenconto/bambulabs_api/issues/118
+const maximumOpTimeout time.Duration = 10 * time.Second
 
 type Printer interface {
 	Serial() string
@@ -163,7 +164,7 @@ func (p *printer) updateState(payload []byte) {
 
 // RequestUpdate manually requests a "pushall", updating the printer state. Exercise caution in the interval you use this, especially on lower end printers.
 func (p *printer) RequestUpdate(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, defaultOpTimeout)
+	ctx, cancel := context.WithTimeout(ctx, maximumOpTimeout)
 	defer cancel()
 
 	return p.publish(ctx, protocol.NewCommand(protocol.Pushing).WithCommand("pushall"))
@@ -237,7 +238,7 @@ func (p *printer) DeleteFile(path string) error {
 
 // SetLight
 func (p *printer) SetLight(ctx context.Context, light Light, mode LightMode) error {
-	ctx, cancel := context.WithTimeout(ctx, defaultOpTimeout)
+	ctx, cancel := context.WithTimeout(ctx, maximumOpTimeout)
 	defer cancel()
 
 	if !SupportsLight(p.model, light) {
@@ -265,7 +266,7 @@ func (p *printer) SetLight(ctx context.Context, light Light, mode LightMode) err
 // begin fans
 
 func (p *printer) SetFan(ctx context.Context, fan Fan, speed uint8) error { // implicit cap of 255
-	ctx, cancel := context.WithTimeout(ctx, defaultOpTimeout)
+	ctx, cancel := context.WithTimeout(ctx, maximumOpTimeout)
 	defer cancel()
 
 	if !SupportsFan(p.model, fan) {
@@ -281,7 +282,7 @@ func (p *printer) SetFan(ctx context.Context, fan Fan, speed uint8) error { // i
 // end fans
 
 func (p *printer) SendGcode(ctx context.Context, input []string) error {
-	ctx, cancel := context.WithTimeout(ctx, defaultOpTimeout)
+	ctx, cancel := context.WithTimeout(ctx, maximumOpTimeout)
 	defer cancel()
 
 	for _, line := range input {
