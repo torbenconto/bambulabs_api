@@ -17,8 +17,6 @@ import (
 	goftp "github.com/jlaffaye/ftp"
 )
 
-const defaultOpTimeout = 10 * time.Second
-
 type Config struct {
 	Host     net.IP
 	MQTTPort int
@@ -29,17 +27,18 @@ type Config struct {
 	SerialNumber string
 }
 
+const defaultOpTimeout time.Duration = 10 * time.Second
+
 type Printer interface {
 	Serial() string
 	Close() error
 	State() (*mqtt.Message, bool)
-	RequestUpdate() error
 
-	SetLight(light Light, mode LightMode) error
+	RequestUpdate(ctx context.Context) error
 
-	SetFan(fan Fan, speed uint8) error
-
-	SendGcode(input []string) error
+	SetLight(ctx context.Context, light Light, mode LightMode) error
+	SetFan(ctx context.Context, fan Fan, speed uint8) error
+	SendGcode(ctx context.Context, input []string) error
 
 	ListFiles(path string) ([]*goftp.Entry, error)
 	DownloadFile(path string, w io.Writer) error
@@ -51,10 +50,10 @@ type printer struct {
 	serial string
 	model  Model
 
-	ctx    context.Context
 	cancel context.CancelFunc
-	mqtt   *mqtt.MqttClient
-	ftp    *ftp.FtpClient
+
+	mqtt *mqtt.MqttClient
+	ftp  *ftp.FtpClient
 
 	state atomic.Pointer[mqtt.Message]
 
@@ -86,23 +85,19 @@ func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 		cancel()
 		return nil, err
 	}
-
-	connectCtx, connectCancel := context.WithTimeout(ctx, defaultOpTimeout)
-	defer connectCancel()
-	if err := mc.Connect(connectCtx); err != nil {
+	if err := mc.Connect(ctx); err != nil {
 		cancel()
 		return nil, err
 	}
 
-	ftpConnectCtx, ftpConnectCancel := context.WithTimeout(ctx, defaultOpTimeout)
-	defer ftpConnectCancel()
-	fc, err := ftp.NewFtpClient(ftpConnectCtx, &ftp.FtpClientConfig{
+	fc := ftp.NewFtpClient(&ftp.FtpClientConfig{
 		Host:       cfg.Host.String(),
 		Port:       ftpPort,
 		Username:   "bblp",
 		AccessCode: cfg.AccessCode,
 	})
-	if err != nil {
+
+	if err := fc.Connect(ctx); err != nil {
 		log.Printf("[%s] ftp connect failed, continuing without file access: %v", cfg.SerialNumber, err)
 		fc = nil
 	}
@@ -111,32 +106,25 @@ func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 		serial: cfg.SerialNumber,
 		model:  cfg.Model,
 
-		ctx:    ctx,
-		cancel: cancel,
-		mqtt:   mc,
-		ftp:    fc,
+		mqtt: mc,
+		ftp:  fc,
+
 		done:   make(chan struct{}),
+		cancel: cancel,
 	}
 
-	waitCtx, waitCancel := context.WithTimeout(ctx, defaultOpTimeout)
-	defer waitCancel()
-	if err := p.waitForConnection(waitCtx); err != nil {
-		cancel()
+	if err := p.mqtt.WaitConnected(ctx); err != nil {
 		_ = mc.Close()
 		_ = fc.Close()
 		return nil, err
 	}
 
-	p.run()
+	p.run(ctx)
 
 	return p, nil
 }
 
-func (p *printer) waitForConnection(ctx context.Context) error {
-	return p.mqtt.WaitConnected(ctx)
-}
-
-func (p *printer) run() {
+func (p *printer) run(ctx context.Context) {
 	messageChan := p.mqtt.MessageChan()
 
 	go func() {
@@ -144,7 +132,7 @@ func (p *printer) run() {
 
 		for {
 			select {
-			case <-p.ctx.Done():
+			case <-ctx.Done():
 				return
 
 			case <-p.mqtt.Done():
@@ -160,9 +148,7 @@ func (p *printer) run() {
 	}()
 }
 
-func (p *printer) publish(cmd *protocol.Command) error {
-	ctx, cancel := context.WithTimeout(p.ctx, defaultOpTimeout)
-	defer cancel()
+func (p *printer) publish(ctx context.Context, cmd *protocol.Command) error {
 	return p.mqtt.Publish(ctx, cmd)
 }
 
@@ -177,8 +163,11 @@ func (p *printer) updateState(payload []byte) {
 }
 
 // RequestUpdate manually requests a "pushall", updating the printer state. Exercise caution in the interval you use this, especially on lower end printers.
-func (p *printer) RequestUpdate() error {
-	return p.publish(protocol.NewCommand(protocol.Pushing).WithCommand("pushall"))
+func (p *printer) RequestUpdate(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, defaultOpTimeout)
+	defer cancel()
+
+	return p.publish(ctx, protocol.NewCommand(protocol.Pushing).WithCommand("pushall"))
 }
 
 func (p *printer) Serial() string {
@@ -188,10 +177,14 @@ func (p *printer) Serial() string {
 func (p *printer) Close() error {
 	p.cancel()
 
-	mqttErr := p.mqtt.Close()
-	ftpErr := p.ftp.Close()
-
 	<-p.done
+
+	mqttErr := p.mqtt.Close()
+
+	var ftpErr error
+	if p.ftp != nil {
+		ftpErr = p.ftp.Close()
+	}
 
 	if mqttErr != nil {
 		return mqttErr
@@ -213,43 +206,41 @@ func (p *printer) ListFiles(path string) ([]*goftp.Entry, error) {
 	if p.ftp == nil {
 		return nil, ErrFTPUnavailable
 	}
-	ctx, cancel := context.WithTimeout(p.ctx, defaultOpTimeout)
-	defer cancel()
-	return p.ftp.List(ctx, path)
+
+	return p.ftp.List(path)
 }
 
 func (p *printer) DownloadFile(path string, w io.Writer) error {
 	if p.ftp == nil {
 		return ErrFTPUnavailable
 	}
-	ctx, cancel := context.WithTimeout(p.ctx, defaultOpTimeout)
-	defer cancel()
-	return p.ftp.Retrieve(ctx, path, w)
+
+	return p.ftp.Retrieve(path, w)
 }
 
 func (p *printer) UploadFile(path string, r io.Reader) error {
 	if p.ftp == nil {
 		return ErrFTPUnavailable
 	}
-	ctx, cancel := context.WithTimeout(p.ctx, defaultOpTimeout)
-	defer cancel()
-	return p.ftp.Store(ctx, path, r)
+	return p.ftp.Store(path, r)
 }
 
 func (p *printer) DeleteFile(path string) error {
 	if p.ftp == nil {
 		return ErrFTPUnavailable
 	}
-	ctx, cancel := context.WithTimeout(p.ctx, defaultOpTimeout)
-	defer cancel()
-	return p.ftp.Delete(ctx, path)
+	return p.ftp.Delete(path)
 }
 
 // end files
 
 // lights
 
-func (p *printer) SetLight(light Light, mode LightMode) error {
+// SetLight
+func (p *printer) SetLight(ctx context.Context, light Light, mode LightMode) error {
+	ctx, cancel := context.WithTimeout(ctx, defaultOpTimeout)
+	defer cancel()
+
 	if !SupportsLight(p.model, light) {
 		return fmt.Errorf("%w: %s", ErrLightNotSupported, light)
 	}
@@ -263,7 +254,7 @@ func (p *printer) SetLight(light Light, mode LightMode) error {
 		Set("loop_times", 1).
 		Set("interval_time", 1000)
 
-	if err := p.publish(command); err != nil {
+	if err := p.publish(ctx, command); err != nil {
 		return fmt.Errorf("error setting light %s: %w", light, err)
 	}
 
@@ -274,12 +265,15 @@ func (p *printer) SetLight(light Light, mode LightMode) error {
 
 // begin fans
 
-func (p *printer) SetFan(fan Fan, speed uint8) error { // implicit cap of 255
+func (p *printer) SetFan(ctx context.Context, fan Fan, speed uint8) error { // implicit cap of 255
+	ctx, cancel := context.WithTimeout(ctx, defaultOpTimeout)
+	defer cancel()
+
 	if !SupportsFan(p.model, fan) {
 		return fmt.Errorf("%w: %s", ErrFanNotSupported, fan.String())
 	}
 
-	if err := p.SendGcode([]string{fmt.Sprintf("M106 P%d S%d", fan, speed)}); err != nil {
+	if err := p.SendGcode(ctx, []string{fmt.Sprintf("M106 P%d S%d", fan, speed)}); err != nil {
 		return fmt.Errorf("error setting fan %s: %w", fan, err)
 	}
 	return nil
@@ -287,12 +281,15 @@ func (p *printer) SetFan(fan Fan, speed uint8) error { // implicit cap of 255
 
 // end fans
 
-func (p *printer) SendGcode(input []string) error {
+func (p *printer) SendGcode(ctx context.Context, input []string) error {
+	ctx, cancel := context.WithTimeout(ctx, defaultOpTimeout)
+	defer cancel()
+
 	for _, line := range input {
 		// TODO: validate GCODE
 		cmd := protocol.NewCommand(protocol.Print).WithCommand("gcode_line").WithParam(line)
 
-		if err := p.publish(cmd); err != nil {
+		if err := p.publish(ctx, cmd); err != nil {
 			return fmt.Errorf("failed to publish gcode line %s: %w", line, err)
 		}
 	}

@@ -145,23 +145,7 @@ func waitToken(ctx context.Context, stopChan <-chan struct{}, t paho.Token) erro
 	case <-t.Done():
 		return t.Error()
 	case <-stopChan:
-		return errors.New("mqtt client closed")
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-	}
-
-	done := make(chan struct{})
-	go func() {
-		t.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		return t.Error()
-	case <-stopChan:
-		return errors.New("mqtt client closed")
+		return ErrClosed
 	case <-ctx.Done():
 		return ctx.Err()
 	}
