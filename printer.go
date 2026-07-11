@@ -16,8 +16,15 @@ import (
 	"github.com/torbenconto/bambulabs_api/internal/protocol"
 )
 
-// maximumOpTimeout represents the maximum timeout allowed, methods effectively use min(user-provided-timeout, maximumOpTimeout), issue https://github.com/torbenconto/bambulabs_api/issues/118
-const maximumOpTimeout time.Duration = 10 * time.Second
+// defaultOpTimeout is applied when a caller does not provide a deadline.
+const defaultOpTimeout time.Duration = 10 * time.Second
+
+func withDefaultOpTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
+	if _, ok := ctx.Deadline(); ok {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, defaultOpTimeout)
+}
 
 // Config represents configuration options for a given [Printer], changing the MQTT and FTP ports is not recommended for inexperienced users (mostly used for testing purposes with the emulator).
 type Config struct {
@@ -176,7 +183,7 @@ func (p *printer) updateState(payload []byte) {
 
 // RequestUpdate manually requests a "pushall", updating the printer state. Exercise caution in the interval you use this, especially on lower end printers.
 func (p *printer) RequestUpdate(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, maximumOpTimeout)
+	ctx, cancel := withDefaultOpTimeout(ctx)
 	defer cancel()
 
 	return p.publish(ctx, protocol.NewCommand(protocol.Pushing).WithCommand("pushall"))
@@ -259,7 +266,7 @@ func (p *printer) DeleteFile(path string) error {
 // For [LightMode.LightFlashing], a default configuration is used for the flashing length and frequency. Please see NOT IMPLEMENTED for more options.
 // If the [Printer] you attempt to call this function on does not support the chosen light, an [ErrLightNotSupported] will be returned.
 func (p *printer) SetLight(ctx context.Context, light Light, mode LightMode) error {
-	ctx, cancel := context.WithTimeout(ctx, maximumOpTimeout)
+	ctx, cancel := withDefaultOpTimeout(ctx)
 	defer cancel()
 
 	if !SupportsLight(p.cfg.Model, light) {
@@ -289,7 +296,7 @@ func (p *printer) SetLight(ctx context.Context, light Light, mode LightMode) err
 // SetFan publishes a GCODE command (M106) via MQTT, allowing you to set a given [Fan] to a speed between 0-255.
 // If the [Printer] you attempt to call this on does not support the chosen fan, an [ErrFanNotSupported] will be returned.
 func (p *printer) SetFan(ctx context.Context, fan Fan, speed uint8) error { // implicit cap of 255
-	ctx, cancel := context.WithTimeout(ctx, maximumOpTimeout)
+	ctx, cancel := withDefaultOpTimeout(ctx)
 	defer cancel()
 
 	if !SupportsFan(p.cfg.Model, fan) {
@@ -307,7 +314,7 @@ func (p *printer) SetFan(ctx context.Context, fan Fan, speed uint8) error { // i
 // SendGcode sends raw GCODE commands to the printer via MQTT, be careful of what you send because the commands are currently not validated.
 // EXERCISE CAUTION WHEN USING THIS FUNCTION, IT CAN AND WILL DAMAGE YOUR PRINTER IF USED IMPROPERLY
 func (p *printer) SendGcode(ctx context.Context, input []string) error {
-	ctx, cancel := context.WithTimeout(ctx, maximumOpTimeout)
+	ctx, cancel := withDefaultOpTimeout(ctx)
 	defer cancel()
 
 	for _, line := range input {
