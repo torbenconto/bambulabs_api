@@ -41,8 +41,8 @@ func (c *FtpClient) Connect(ctx context.Context) error {
 		addr,
 		goftp.DialWithContext(ctx),
 		goftp.DialWithTLS(&tls.Config{
-			InsecureSkipVerify: true,
-			ServerName:         c.config.Host,
+			InsecureSkipVerify: true,          // required for local communication, ignore warning
+			ServerName:         c.config.Host, // also required for resolution, do not remove
 		}),
 	)
 	if err != nil {
@@ -87,6 +87,7 @@ func (c *FtpClient) List(path string) ([]os.FileInfo, error) {
 			convertedEntry.isDir = true
 		}
 
+		convertedEntries = append(convertedEntries, convertedEntry)
 	}
 
 	return convertedEntries, nil
