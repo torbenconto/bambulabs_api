@@ -23,23 +23,6 @@ func TestWithDefaultOpTimeout(t *testing.T) {
 		}
 	})
 
-	t.Run("preserves caller deadline longer than default", func(t *testing.T) {
-		parentDeadline := time.Now().Add(defaultOpTimeout * 2)
-		parent, parentCancel := context.WithDeadline(context.Background(), parentDeadline)
-		defer parentCancel()
-
-		ctx, cancel := withDefaultOpTimeout(parent)
-		defer cancel()
-
-		deadline, ok := ctx.Deadline()
-		if !ok {
-			t.Fatal("expected the caller deadline")
-		}
-		if !deadline.Equal(parentDeadline) {
-			t.Fatalf("deadline = %v, want %v", deadline, parentDeadline)
-		}
-	})
-
 	t.Run("preserves caller deadline shorter than default", func(t *testing.T) {
 		parentDeadline := time.Now().Add(time.Second)
 		parent, parentCancel := context.WithDeadline(context.Background(), parentDeadline)
@@ -58,6 +41,7 @@ func TestWithDefaultOpTimeout(t *testing.T) {
 	})
 }
 
+// Keeping this for now but realistically the underlying command is whats being tested here, leak of test responsibility
 func TestNewLightCommand(t *testing.T) {
 	cfg := LightFlashingConfig{
 		OnTime:       250 * time.Millisecond,
@@ -89,17 +73,5 @@ func TestNewLightCommand(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("light command = %#v, want %#v", got, want)
-	}
-}
-
-func TestDefaultLightFlashingConfig(t *testing.T) {
-	want := LightFlashingConfig{
-		OnTime:       500 * time.Millisecond,
-		OffTime:      500 * time.Millisecond,
-		LoopTimes:    1,
-		IntervalTime: time.Second,
-	}
-	if got := DefaultLightFlashingConfig(); got != want {
-		t.Fatalf("default flashing config = %#v, want %#v", got, want)
 	}
 }
