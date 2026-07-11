@@ -20,6 +20,21 @@ This document will guide you through the process of contributing to the project.
 
 ---
 
+## AI-assisted contributions
+
+We strongly disadvise AI-based development but will accept well-reviewed AI-assisted code. If you used an AI tool (such as ChatGPT, Claude, GitHub Copilot, Gemini, etc.) to generate or substantially modify code, documentation, or tests, please disclose this in your pull request.
+
+Contributors remain fully responsible for:
+
+- Understanding all submitted code.
+- Verifying correctness and safety.
+- Ensuring code meets the project's style and quality standards.
+- Ensuring generated code does not violate third-party licenses or copyrights.
+
+Undisclosed or unreviewed AI-generated contributions will be rejected.
+
+---
+
 ## How to Contribute
 
 We welcome contributions from everyone! There are several ways to contribute to this project:
