@@ -46,6 +46,7 @@ type Printer interface {
 	RequestUpdate(ctx context.Context) error
 
 	SetLight(ctx context.Context, light Light, mode LightMode) error
+	SetLightFlashing(ctx context.Context, light Light, cfg LightFlashingConfig) error
 	SetFan(ctx context.Context, fan Fan, speed uint8) error
 	SendGcode(ctx context.Context, input []string) error
 
@@ -263,9 +264,19 @@ func (p *printer) DeleteFile(path string) error {
 // lights
 
 // SetLight publishes an MQTT command to control a given [Light], allowing you to set it to a given [LightMode].
-// For [LightMode.LightFlashing], a default configuration is used for the flashing length and frequency. Please see NOT IMPLEMENTED for more options.
+// For [LightFlashing], [DefaultLightFlashingConfig] is used. Call [Printer.SetLightFlashing] to customize the flashing timing.
 // If the [Printer] you attempt to call this function on does not support the chosen light, an [ErrLightNotSupported] will be returned.
 func (p *printer) SetLight(ctx context.Context, light Light, mode LightMode) error {
+	return p.setLight(ctx, light, mode, DefaultLightFlashingConfig())
+}
+
+// SetLightFlashing publishes an MQTT command that flashes a given [Light] using cfg.
+// If the [Printer] does not support the chosen light, an [ErrLightNotSupported] will be returned.
+func (p *printer) SetLightFlashing(ctx context.Context, light Light, cfg LightFlashingConfig) error {
+	return p.setLight(ctx, light, LightFlashing, cfg)
+}
+
+func (p *printer) setLight(ctx context.Context, light Light, mode LightMode, cfg LightFlashingConfig) error {
 	ctx, cancel := withDefaultOpTimeout(ctx)
 	defer cancel()
 
@@ -273,20 +284,24 @@ func (p *printer) SetLight(ctx context.Context, light Light, mode LightMode) err
 		return fmt.Errorf("%w: %s", ErrLightNotSupported, light)
 	}
 
-	command := protocol.NewCommand(protocol.System).
-		WithCommand("ledctrl").
-		Set("led_node", light).
-		Set("led_mode", mode).
-		Set("led_on_time", 500).
-		Set("led_off_time", 500).
-		Set("loop_times", 1).
-		Set("interval_time", 1000)
+	command := newLightCommand(light, mode, cfg)
 
 	if err := p.publish(ctx, command); err != nil {
 		return fmt.Errorf("error setting light %s: %w", light, err)
 	}
 
 	return nil
+}
+
+func newLightCommand(light Light, mode LightMode, cfg LightFlashingConfig) *protocol.Command {
+	return protocol.NewCommand(protocol.System).
+		WithCommand("ledctrl").
+		Set("led_node", light).
+		Set("led_mode", mode).
+		Set("led_on_time", cfg.OnTime.Milliseconds()).
+		Set("led_off_time", cfg.OffTime.Milliseconds()).
+		Set("loop_times", cfg.LoopTimes).
+		Set("interval_time", cfg.IntervalTime.Milliseconds())
 }
 
 // end lights
