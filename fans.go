@@ -1,5 +1,6 @@
 package bambulabs_api
 
+// Fan represents any possible supported fan and its literal integer value as used in MQTT commands.
 type Fan uint8
 
 const (

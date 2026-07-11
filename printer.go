@@ -16,6 +16,10 @@ import (
 	"github.com/torbenconto/bambulabs_api/internal/protocol"
 )
 
+// maximumOpTimeout represents the maximum timeout allowed, methods effectively use min(user-provided-timeout, maximumOpTimeout), issue https://github.com/torbenconto/bambulabs_api/issues/118
+const maximumOpTimeout time.Duration = 10 * time.Second
+
+// Config represents configuration options for a given [Printer], changing the MQTT and FTP ports is not recommended for inexperienced users (mostly used for testing purposes with the emulator).
 type Config struct {
 	Host     net.IP
 	MQTTPort int
@@ -26,8 +30,7 @@ type Config struct {
 	SerialNumber string
 }
 
-const defaultOpTimeout time.Duration = 10 * time.Second
-
+// Printer represents a connection to any and all BambuLabs printers, the primary [Client] struct holds objects that satisfy this interface.
 type Printer interface {
 	Serial() string
 	Close() error
@@ -46,22 +49,27 @@ type Printer interface {
 }
 
 type printer struct {
-	serial string
-	model  Model
+	cfg Config // own the config
 
+	// Cancellation tree for entire printer object
 	cancel context.CancelFunc
 
 	mqtt *mqtt.MqttClient
 	ftp  *ftp.FtpClient
 
+	// Hot-swappable pointer to the current mqtt state
+	// May represent some leakage of information but neccessary in order to simply state access mechanisms
 	state atomic.Pointer[mqtt.Message]
 
 	done chan struct{}
 }
 
+// NewPrinter creates a new [printer] object and attempts both an MQTT and FTP connection using provided options
+// If the MQTT connection fails, the construction fails. If the FTP fails, construction will succeed but remain in a degraded state.
 func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 	ctx, cancel := context.WithCancel(parent)
 
+	// Assign default ports if none provided.
 	mqttPort := cfg.MQTTPort
 	if mqttPort == 0 {
 		mqttPort = 8883
@@ -80,6 +88,7 @@ func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 		AccessCode:   cfg.AccessCode,
 	})
 
+	// MQTT connection is vital for printer communication so we'll deconstruct the entire object if it fails.
 	if err != nil {
 		cancel()
 		return nil, err
@@ -96,14 +105,14 @@ func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 		AccessCode: cfg.AccessCode,
 	})
 
+	// FTP is non-vital so we'll warn the user and proceed without FTP connection.
 	if err := fc.Connect(ctx); err != nil {
 		log.Printf("[%s] ftp connect failed, continuing without file access: %v", cfg.SerialNumber, err)
 		fc = nil
 	}
 
 	p := &printer{
-		serial: cfg.SerialNumber,
-		model:  cfg.Model,
+		cfg: cfg,
 
 		mqtt: mc,
 		ftp:  fc,
@@ -118,6 +127,7 @@ func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 		return nil, err
 	}
 
+	// run state loop (goroutine)
 	p.run(ctx)
 
 	return p, nil
@@ -147,14 +157,17 @@ func (p *printer) run(ctx context.Context) {
 	}()
 }
 
+// command publishing helper, possibly include some checks in the future
 func (p *printer) publish(ctx context.Context, cmd *protocol.Command) error {
 	return p.mqtt.Publish(ctx, cmd)
 }
 
+// updateState takes a raw MQTT payload and attempts to convert it into a [import/mqtt.Message].
+// Failure is not fatal but may represent something severly wrong with the message struct itself.
 func (p *printer) updateState(payload []byte) {
 	var msg mqtt.Message
 	if err := json.Unmarshal(payload, &msg); err != nil {
-		log.Printf("[%s] failed to unmarshal MQTT payload: %v", p.serial, err)
+		log.Printf("[%s] failed to unmarshal MQTT payload: %v", p.cfg.SerialNumber, err)
 		return
 	}
 
@@ -163,16 +176,18 @@ func (p *printer) updateState(payload []byte) {
 
 // RequestUpdate manually requests a "pushall", updating the printer state. Exercise caution in the interval you use this, especially on lower end printers.
 func (p *printer) RequestUpdate(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, defaultOpTimeout)
+	ctx, cancel := context.WithTimeout(ctx, maximumOpTimeout)
 	defer cancel()
 
 	return p.publish(ctx, protocol.NewCommand(protocol.Pushing).WithCommand("pushall"))
 }
 
+// Serial returns the printer serial number provided during construction.
 func (p *printer) Serial() string {
-	return p.serial
+	return p.cfg.SerialNumber
 }
 
+// Close terminates the connection to the printer and it's underlying clients.
 func (p *printer) Close() error {
 	p.cancel()
 
@@ -191,6 +206,7 @@ func (p *printer) Close() error {
 	return ftpErr
 }
 
+// State returns the current MQTT state as a [import/mqtt.Message] alongside a boolean indicating a successful retrieve
 func (p *printer) State() (*mqtt.Message, bool) {
 	m := p.state.Load()
 	if m == nil {
@@ -201,6 +217,7 @@ func (p *printer) State() (*mqtt.Message, bool) {
 
 // files (FTP)
 
+// ListFiles calls the underlying FTP client to fetch files found on the printer, returns an [ErrFTPUnavalible] if FTP is unavalible.
 func (p *printer) ListFiles(path string) ([]os.FileInfo, error) {
 	if p.ftp == nil {
 		return nil, ErrFTPUnavailable
@@ -209,6 +226,7 @@ func (p *printer) ListFiles(path string) ([]os.FileInfo, error) {
 	return p.ftp.List(path)
 }
 
+// DownloadFile calls the underlying FTP client to retrieve a file found on the printer to an [import/io.Writer], returns an [ErrFTPUnavalible] if FTP is unavalible.
 func (p *printer) DownloadFile(path string, w io.Writer) error {
 	if p.ftp == nil {
 		return ErrFTPUnavailable
@@ -217,6 +235,7 @@ func (p *printer) DownloadFile(path string, w io.Writer) error {
 	return p.ftp.Retrieve(path, w)
 }
 
+// UploadFile calls the underlying FTP client to upload a file (given as an [import/io.Reader]) to a given path, returns an [ErrFTPUnavalible] if FTP is unavalible.
 func (p *printer) UploadFile(path string, r io.Reader) error {
 	if p.ftp == nil {
 		return ErrFTPUnavailable
@@ -224,6 +243,7 @@ func (p *printer) UploadFile(path string, r io.Reader) error {
 	return p.ftp.Store(path, r)
 }
 
+// DeleteFile calls the underlying FTP client to delete a file off of the printer (by path), returns an [ErrFTPUnavalible] if FTP is unavalible.
 func (p *printer) DeleteFile(path string) error {
 	if p.ftp == nil {
 		return ErrFTPUnavailable
@@ -235,12 +255,14 @@ func (p *printer) DeleteFile(path string) error {
 
 // lights
 
-// SetLight
+// SetLight publishes an MQTT command to control a given [Light], allowing you to set it to a given [LightMode].
+// For [LightMode.LightFlashing], a default configuration is used for the flashing length and frequency. Please see NOT IMPLEMENTED for more options.
+// If the [Printer] you attempt to call this function on does not support the chosen light, an [ErrLightNotSupported] will be returned.
 func (p *printer) SetLight(ctx context.Context, light Light, mode LightMode) error {
-	ctx, cancel := context.WithTimeout(ctx, defaultOpTimeout)
+	ctx, cancel := context.WithTimeout(ctx, maximumOpTimeout)
 	defer cancel()
 
-	if !SupportsLight(p.model, light) {
+	if !SupportsLight(p.cfg.Model, light) {
 		return fmt.Errorf("%w: %s", ErrLightNotSupported, light)
 	}
 
@@ -264,11 +286,13 @@ func (p *printer) SetLight(ctx context.Context, light Light, mode LightMode) err
 
 // begin fans
 
+// SetFan publishes a GCODE command (M106) via MQTT, allowing you to set a given [Fan] to a speed between 0-255.
+// If the [Printer] you attempt to call this on does not support the chosen fan, an [ErrFanNotSupported] will be returned.
 func (p *printer) SetFan(ctx context.Context, fan Fan, speed uint8) error { // implicit cap of 255
-	ctx, cancel := context.WithTimeout(ctx, defaultOpTimeout)
+	ctx, cancel := context.WithTimeout(ctx, maximumOpTimeout)
 	defer cancel()
 
-	if !SupportsFan(p.model, fan) {
+	if !SupportsFan(p.cfg.Model, fan) {
 		return fmt.Errorf("%w: %s", ErrFanNotSupported, fan.String())
 	}
 
@@ -280,8 +304,10 @@ func (p *printer) SetFan(ctx context.Context, fan Fan, speed uint8) error { // i
 
 // end fans
 
+// SendGcode sends raw GCODE commands to the printer via MQTT, be careful of what you send because the commands are currently not validated.
+// EXERCISE CAUTION WHEN USING THIS FUNCTION, IT CAN AND WILL DAMAGE YOUR PRINTER IF USED IMPROPERLY
 func (p *printer) SendGcode(ctx context.Context, input []string) error {
-	ctx, cancel := context.WithTimeout(ctx, defaultOpTimeout)
+	ctx, cancel := context.WithTimeout(ctx, maximumOpTimeout)
 	defer cancel()
 
 	for _, line := range input {

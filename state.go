@@ -1,5 +1,6 @@
 package bambulabs_api
 
+// GcodeState is an enum representing the current print state as dictated by printer.
 type GcodeState string
 
 const (

@@ -43,11 +43,11 @@ func (c *MqttClient) MessageChan() <-chan []byte {
 
 func NewMqttClient(cfg *MqttConfig) (*MqttClient, error) {
 	opts := paho.NewClientOptions().
-		AddBroker(fmt.Sprintf("mqtts://%s:%d", cfg.Host.String(), cfg.Port)).
+		AddBroker(fmt.Sprintf("mqtts://%s:%d", cfg.Host.String(), cfg.Port)). // use mqtts
 		SetClientID(clientID).
 		SetUsername(cfg.Username).
 		SetPassword(cfg.AccessCode).
-		SetTLSConfig(&tls.Config{InsecureSkipVerify: true}).
+		SetTLSConfig(&tls.Config{InsecureSkipVerify: true}). // required for local printer commmunication
 		SetAutoReconnect(true).
 		SetKeepAlive(30 * time.Second)
 

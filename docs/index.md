@@ -4,7 +4,7 @@ title: "Bambulabs API"
 
 # Bambulabs API
 
-Welcome to the Bambulabs API documentation. This repository provides a Go client library and related internal tooling to interact with Bambulabs printers via the vendor MQTT protocol and local emulation tools. The docs are written as plain Markdown so they can be used with Hugo or another static site generator (SSG).
+Welcome to the Bambulabs API documentation. This repository provides a Go client library and related internal tooling to interact with Bambulabs printers via the vendor MQTT protocol and local emulation tools.
 
 Contents
 
@@ -12,7 +12,6 @@ Contents
 - Quickstart guide (get started in minutes)
 - API reference (detailed types, methods, and examples)
 - Supported models and capabilities
-- Deployment: Publish this site with Hugo or any SSG
 
 Project layout
 
@@ -33,7 +32,7 @@ Goals
 Where to start
 
 - Read the Quickstart: [Quickstart](quickstart.md)
-- Browse the API reference: [API Reference](api.md)
+- Browse the API reference: [API Reference](https://pkg.go.dev/github.com/torbenconto/bambulabs_api)
 - See supported models: [Supported Models](supported_models.md)
 
 Contributing

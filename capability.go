@@ -2,6 +2,7 @@ package bambulabs_api
 
 import "slices"
 
+// Capability is a bitmask representing a printer's ability to support certain features/modules, [Light] and [Fan] capabilites are seperate from this mask.
 type Capability uint8
 
 // We derive light and fan capabilites seperately

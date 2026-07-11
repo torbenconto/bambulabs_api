@@ -1,5 +1,6 @@
 package bambulabs_api
 
+// Light is an enum representing all possible lights and their literal names as used in MQTT communications.
 type Light string
 
 const (
@@ -7,6 +8,7 @@ const (
 	WorkLight    Light = "work_light" // Defined but seemingly unused
 )
 
+// LightMode represents supported modes for a given [Light] and their literal string values as used in MQTT commands.
 type LightMode string
 
 const (

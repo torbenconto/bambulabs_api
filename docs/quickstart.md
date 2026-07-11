@@ -10,7 +10,7 @@ The name `bambulabs_api` is the official name of this golang package, and has no
 
 ## Connection
 
-The library connects to your printer over your local network (henceforth referred to as "LAN" or "local network"). It uses the MQTT protocol to access your printer's telemetry, allowing you to monitor and control your printer remotely, and the FTP protocol to browse, upload, and download files on the printer's storage (typically its SD card). Both connections are established automatically when a printer is added to the client — you don't need to manage them separately.
+The library connects to your printer over your local network (henceforth referred to as "LAN" or "local network"). It uses the MQTT protocol to access your printer's telemetry, allowing you to monitor and control your printer remotely, and the FTP protocol to browse, upload, and download files on the printer's storage (typically its SD card). Both connections are established automatically when a printer is added to the client, you don't need to manage them separately.
 
 In order to connect to your printer, the library requires a couple pieces of information:
 
