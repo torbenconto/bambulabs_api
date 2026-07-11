@@ -23,14 +23,6 @@ Extending support for new models
 2. Update capability helper functions in `lights.go` and `fans.go` to include the new model where applicable.
 3. Add any model-specific defaults (e.g., default number of fans or LED nodes) in `hms` or `state.go` as required.
 
-Feature matrix (example)
-
-| Feature | Model A | Model B | Model C |
-|---|---:|---:|---:|
-| Front LED | ✓ | ✓ | ✗ |
-| Rear Fan | ✗ | ✓ | ✓ |
-| Dual Extruder | ✗ | ✗ | ✓ |
-
 Notes
 
 - Where features are unknown for a model, the library errs on the side of safety: calls that would affect unsupported features return `ErrLightNotSupported` or `ErrFanNotSupported`.
