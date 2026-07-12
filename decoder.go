@@ -16,10 +16,10 @@ func (d *Decoder) Apply(state *State, msg *protocol.Report) error { // mutates s
 		return nil
 	}
 
-	// d.decodeAMS(state, msg)
-	// d.decodeHMS(state, msg)
-	// d.decodeExtruder(state, msg)
-	// d.decodeNozzles(state, msg)
+	d.decodeAMS(state, msg)
+	d.decodeHMS(state, msg)
+	d.decodeExtruder(state, msg)
+	d.decodeNozzles(state, msg)
 
 	return nil
 }
