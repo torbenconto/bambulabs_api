@@ -1,5 +1,7 @@
 package bambulabs_api
 
+// Capability represents the **current** ability of a printer to perform some action.
+// These are dynamically inferred based on telemetry data and stored within the state of a [Printer]
 type Capability uint64
 
 const (
