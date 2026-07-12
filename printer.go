@@ -2,11 +2,13 @@ package bambulabs_api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/torbenconto/bambulabs_api/internal/ftp"
@@ -39,7 +41,7 @@ type Config struct {
 type Printer interface {
 	Serial() string
 	Close() error
-	// State() (*mqtt.Message, bool)
+	State() State
 
 	RequestUpdate(ctx context.Context) error
 
@@ -62,6 +64,11 @@ type printer struct {
 
 	mqtt *mqtt.MqttClient
 	ftp  *ftp.FtpClient
+
+	state   State
+	decoder Decoder
+
+	mu sync.RWMutex
 
 	done chan struct{}
 }
@@ -168,12 +175,20 @@ func (p *printer) publish(ctx context.Context, cmd *protocol.Command) error {
 // Failure is not fatal but may represent something severly wrong with the message struct itself.
 func (p *printer) updateState(payload []byte) {
 	// var msg mqtt.Message
-	// if err := json.Unmarshal(payload, &msg); err != nil {
-	// 	log.Printf("[%s] failed to unmarshal MQTT payload: %v", p.cfg.SerialNumber, err)
-	// 	return
-	// }
 
 	// p.state.Store(&msg)
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	var report protocol.Report
+	if err := json.Unmarshal(payload, &report); err != nil {
+		log.Printf("[%s] failed to unmarshal MQTT payload: %v", p.cfg.SerialNumber, err)
+		return
+	}
+
+	p.decoder.Apply(&p.state, &report)
+
 }
 
 // RequestUpdate manually requests a "pushall", updating the printer state. Exercise caution in the interval you use this, especially on lower end printers.
@@ -208,14 +223,12 @@ func (p *printer) Close() error {
 	return ftpErr
 }
 
-// State returns the current MQTT state as a [import/mqtt.Message] alongside a boolean indicating a successful retrieve
-// func (p *printer) State() (*mqtt.Message, bool) {
-// 	m := p.state.Load()
-// 	if m == nil {
-// 		return nil, false
-// 	}
-// 	return m, true
-// }
+func (p *printer) State() State {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	return p.state
+}
 
 // files (FTP)
 
