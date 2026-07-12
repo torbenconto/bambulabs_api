@@ -274,9 +274,9 @@ func (p *printer) setLight(ctx context.Context, light Light, mode LightMode, cfg
 	ctx, cancel := withDefaultOpTimeout(ctx)
 	defer cancel()
 
-	if !SupportsLight(p.cfg.Model, light) {
-		return fmt.Errorf("%w: %s", ErrLightNotSupported, light)
-	}
+	// if !SupportsLight(p.cfg.Model, light) {
+	// 	return fmt.Errorf("%w: %s", ErrLightNotSupported, light)
+	// }
 
 	command := newLightCommand(light, mode, cfg)
 
@@ -308,9 +308,9 @@ func (p *printer) SetFan(ctx context.Context, fan Fan, speed uint8) error { // i
 	ctx, cancel := withDefaultOpTimeout(ctx)
 	defer cancel()
 
-	if !SupportsFan(p.cfg.Model, fan) {
-		return fmt.Errorf("%w: %s", ErrFanNotSupported, fan.String())
-	}
+	// if !SupportsFan(p.cfg.Model, fan) {
+	// 	return fmt.Errorf("%w: %s", ErrFanNotSupported, fan.String())
+	// }
 
 	if err := p.SendGcode(ctx, []string{fmt.Sprintf("M106 P%d S%d", fan, speed)}); err != nil {
 		return fmt.Errorf("error setting fan %s: %w", fan, err)
