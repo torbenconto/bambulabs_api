@@ -2,13 +2,11 @@ package bambulabs_api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
-	"sync/atomic"
 	"time"
 
 	"github.com/torbenconto/bambulabs_api/internal/ftp"
@@ -41,7 +39,7 @@ type Config struct {
 type Printer interface {
 	Serial() string
 	Close() error
-	State() (*mqtt.Message, bool)
+	// State() (*mqtt.Message, bool)
 
 	RequestUpdate(ctx context.Context) error
 
@@ -64,10 +62,6 @@ type printer struct {
 
 	mqtt *mqtt.MqttClient
 	ftp  *ftp.FtpClient
-
-	// Hot-swappable pointer to the current mqtt state
-	// May represent some leakage of information but neccessary in order to simply state access mechanisms
-	state atomic.Pointer[mqtt.Message]
 
 	done chan struct{}
 }
@@ -173,13 +167,13 @@ func (p *printer) publish(ctx context.Context, cmd *protocol.Command) error {
 // updateState takes a raw MQTT payload and attempts to convert it into a [import/mqtt.Message].
 // Failure is not fatal but may represent something severly wrong with the message struct itself.
 func (p *printer) updateState(payload []byte) {
-	var msg mqtt.Message
-	if err := json.Unmarshal(payload, &msg); err != nil {
-		log.Printf("[%s] failed to unmarshal MQTT payload: %v", p.cfg.SerialNumber, err)
-		return
-	}
+	// var msg mqtt.Message
+	// if err := json.Unmarshal(payload, &msg); err != nil {
+	// 	log.Printf("[%s] failed to unmarshal MQTT payload: %v", p.cfg.SerialNumber, err)
+	// 	return
+	// }
 
-	p.state.Store(&msg)
+	// p.state.Store(&msg)
 }
 
 // RequestUpdate manually requests a "pushall", updating the printer state. Exercise caution in the interval you use this, especially on lower end printers.
@@ -215,13 +209,13 @@ func (p *printer) Close() error {
 }
 
 // State returns the current MQTT state as a [import/mqtt.Message] alongside a boolean indicating a successful retrieve
-func (p *printer) State() (*mqtt.Message, bool) {
-	m := p.state.Load()
-	if m == nil {
-		return nil, false
-	}
-	return m, true
-}
+// func (p *printer) State() (*mqtt.Message, bool) {
+// 	m := p.state.Load()
+// 	if m == nil {
+// 		return nil, false
+// 	}
+// 	return m, true
+// }
 
 // files (FTP)
 
