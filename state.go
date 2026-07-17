@@ -3,13 +3,23 @@ package bambulabs_api
 import "github.com/torbenconto/bambulabs_api/hms"
 
 type State struct {
-	cap Capability // private for now to prevent user re-assignment
+	cap Capability
 
 	Errors []hms.Error
 
 	AMS       AMSSystem
 	Extruders ExtruderSystem
 	Nozzles   NozzleSystem
+}
+
+func NewState() *State {
+	return &State{
+		Nozzles: *NewNozzleSystem(),
+	}
+}
+
+func (s State) Capability() Capability {
+	return s.cap
 }
 
 // Get nozzle installed on an extruder

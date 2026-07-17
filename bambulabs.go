@@ -87,7 +87,7 @@ func NewClient(parent context.Context) *Client {
 //
 // Add returns [ErrPrinterExists] if a printer with the same serial number is
 // already managed by the client.
-func (c *Client) Add(cfg Config) (Printer, error) {
+func (c *Client) Add(cfg *Config) (Printer, error) {
 	c.mu.Lock() // lock printers to prevent races
 	defer c.mu.Unlock()
 

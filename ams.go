@@ -2,24 +2,10 @@ package bambulabs_api
 
 import "image/color"
 
-// type AMSStatus int
-
-// const (
-// 	AMSStatusIdle            AMSStatus = 0x00
-// 	AMSStatusFilamentChange            = 0x01
-// 	AMSStatusRFIDIdentifying           = 0x02
-// 	AMSStatusAssist                    = 0x03
-// 	AMSStatusCalibration               = 0x04
-// 	AMSStatusColdPull                  = 0x07
-// 	AMSStatusSelfCheck                 = 0x10
-// 	AMSStatusDebug                     = 0x20
-// 	AMSStatusUnknown                   = 0xFF
-// )
-
 type AMSModel uint8
 
 const (
-	AMSModelExtSpool  AMSModel = 0
+	AMSModelUnknown   AMSModel = 0
 	AMSModelBase      AMSModel = 1
 	AMSModelLite      AMSModel = 2
 	AMSModelPro       AMSModel = 3
@@ -27,46 +13,99 @@ const (
 	AMSModelLiteMixed AMSModel = 5 // ???
 )
 
-type AMSSystem struct {
-	ams []*AMS
+func (a AMSModel) String() string {
+	switch a {
+	case AMSModelUnknown:
+		return "Unknown"
+	case AMSModelBase:
+		return "AMS"
+	case AMSModelLite:
+		return "AMS-Lite"
+	case AMSModelPro:
+		return "AMS-Pro"
+	case AMSModelHighTemp:
+		return "AMS-HT"
+	default:
+		return ""
+	}
 }
 
-// Represents one AMS, state should contain a []AMS
+type AMSSystem struct {
+	ams []AMS
+}
+
+func (a AMSSystem) Units() []AMS {
+	return a.ams
+}
+
+func (a AMSSystem) Get(id int) *AMS {
+	for i := range a.ams {
+		if a.ams[i].ID == id {
+			return &a.ams[i]
+		}
+	}
+
+	return nil
+}
+
 type AMS struct {
 	ID int
-	// Serial string
 
 	Model AMSModel
-	// Status AMSStatus
 
 	Trays []Tray
 }
 
-type AMSInfo struct {
-	Model            AMSModel
-	BoundExtruders   []uint8
-	SwitcherPosition uint8
+func (a AMS) Tray(slot int) *Tray {
+	if slot < 0 || slot >= len(a.Trays) {
+		return nil
+	}
+
+	return &a.Trays[slot]
+}
+
+func (a AMS) HasFilament(slot int) bool {
+	tray := a.Tray(slot)
+	return tray != nil && tray.Filament.Remaining.Percent > 0
 }
 
 type Tray struct {
-	Color  color.RGBA
+	Slot int
+
+	Color color.RGBA
+
+	// For multi-color filament
 	Colors []color.RGBA
+
+	Material string
 
 	Diameter float32
 
+	Filament FilamentInfo
+
+	RFID RFIDInfo
+
+	SuggestedBedTemp int
+
+	TemperatureInfo TemperatureRequirements
+}
+
+type FilamentInfo struct {
 	Remaining RemainingFilament
-
-	RFIDUID string
-	UUID    string
-
-	BedTemp int
-	// BedTempType seemingly unused
-
-	MinNozzleTemp int
-	MaxNozzleTemp int
 }
 
 type RemainingFilament struct {
 	Percent int
 	Grams   *int
+}
+
+type RFIDInfo struct {
+	UID  string
+	UUID string
+}
+
+type TemperatureRequirements struct {
+	MinNozzleTemp int
+	MaxNozzleTemp int
+	BedTemp       int
 }

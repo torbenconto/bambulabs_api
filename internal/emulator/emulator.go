@@ -9,7 +9,6 @@ import (
 	"github.com/mochi-mqtt/server/v2/hooks/auth"
 	"github.com/mochi-mqtt/server/v2/listeners"
 	"github.com/mochi-mqtt/server/v2/packets"
-
 	"github.com/torbenconto/bambulabs_api"
 )
 

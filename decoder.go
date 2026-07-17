@@ -9,7 +9,15 @@ import (
 	"github.com/torbenconto/bambulabs_api/internal/protocol"
 )
 
-type Decoder struct{} // stateless
+type Decoder struct {
+	printerModel Model
+}
+
+func NewDecoder(model Model) *Decoder {
+	return &Decoder{
+		printerModel: model,
+	}
+}
 
 func (d *Decoder) Apply(state *State, msg *protocol.Report) error { // mutates state based on protocol contents
 	if msg.Print == nil {
@@ -162,9 +170,9 @@ func (d *Decoder) decodeExtruder(state *State, msg *protocol.Report) {
 			NozzleID:          uint8(extruder.Hnow),
 		}
 
-		ext.PreviousSlot = decodeV2AmsSlot(extruder.Spre, state.Extruders.numExtruders)
-		ext.CurrentSlot = decodeV2AmsSlot(extruder.Snow, state.Extruders.numExtruders)
-		ext.TargetSlot = decodeV2AmsSlot(extruder.Star, state.Extruders.numExtruders)
+		ext.PreviousSlot = decodeV2AmsSlot(extruder.Spre)
+		ext.CurrentSlot = decodeV2AmsSlot(extruder.Snow)
+		ext.TargetSlot = decodeV2AmsSlot(extruder.Star)
 
 		for _, backupRaw := range extruder.FilamBak {
 			if backupMap, ok := backupRaw.(float64); ok {
@@ -209,7 +217,7 @@ func decodeV1AmsSlot(tray string) FilamentSlot {
 	}
 }
 
-func decodeV2AmsSlot(slotBits int, numExtruders int) FilamentSlot {
+func decodeV2AmsSlot(slotBits int) FilamentSlot {
 	// V2.0 uses bit-packed 16-bit field:
 	// [0:8]   = slot_id
 	// [8:8]   = ams_id
@@ -248,19 +256,23 @@ func (d *Decoder) decodeAMS(state *State, msg *protocol.Report) {
 		return
 	}
 
-	if len(msg.Print.AMS.AMS) > 0 {
-		state.cap.Add(CapabilityAMS)
+	amsReports := msg.Print.AMS.AMS
+	if len(amsReports) == 0 {
+		return
 	}
 
-	amsUnits := make([]*AMS, 0, len(msg.Print.AMS.AMS))
-	for _, unit := range msg.Print.AMS.AMS {
-		amsInfo := decodeAMSInfo(unit.Info, false) // only used for model for now...
-		ams := &AMS{
-			ID:    parseInt(unit.ID),
-			Model: amsInfo.Model,
+	state.cap.Add(CapabilityAMS)
+
+	amsUnits := make([]AMS, 0, len(amsReports))
+
+	for _, report := range amsReports {
+		ams := AMS{
+			ID:    parseInt(report.ID),
+			Model: d.decodeAMSModel(report.Info),
+			Trays: make([]Tray, 0, len(report.Tray)),
 		}
 
-		for _, tray := range unit.Tray {
+		for _, tray := range report.Tray {
 			ams.Trays = append(ams.Trays, decodeTray(&tray))
 		}
 
@@ -270,12 +282,35 @@ func (d *Decoder) decodeAMS(state *State, msg *protocol.Report) {
 	state.AMS.ams = amsUnits
 }
 
-func decodeAMSInfo(info string, hasFilamentSwitch bool) AMSInfo {
-	var result AMSInfo
+func (d *Decoder) decodeAMSModel(info string) AMSModel {
+	if info == "" {
+		return d.defaultAMSModel()
+	}
+
+	return decodeAMSInfo(info, false).Model
+}
+
+func (d *Decoder) defaultAMSModel() AMSModel {
+	switch d.printerModel {
+	case ModelA1, ModelA1Mini:
+		return AMSModelLite
+	default:
+		return AMSModelBase
+	}
+}
+
+type amsInfo struct {
+	Model            AMSModel
+	BoundExtruders   []ExtruderID
+	SwitcherPosition uint8
+}
+
+func decodeAMSInfo(info string, hasFilamentSwitch bool) amsInfo {
+	var result amsInfo
 
 	raw, err := strconv.ParseUint(info, 16, 64)
 	if err != nil {
-		// result.BoundExtruders = []uint8{MainExtruder}
+		result.BoundExtruders = []ExtruderID{MainExtruder}
 		return result
 	}
 
@@ -290,10 +325,10 @@ func decodeAMSInfo(info string, hasFilamentSwitch bool) AMSInfo {
 			bindSwitch := getFlagBits(raw, 24, 4)
 
 			if bindSwitch == 0 || bindSwitch == 1 {
-				// result.BoundExtruders = []uint8{
-				// 	MainExtruder,
-				// 	DeputyExtruder,
-				// }
+				result.BoundExtruders = []ExtruderID{
+					MainExtruder,
+					DeputyExtruder,
+				}
 			}
 
 			if bindSwitch == 0 {
@@ -302,10 +337,10 @@ func decodeAMSInfo(info string, hasFilamentSwitch bool) AMSInfo {
 				result.SwitcherPosition = 1 // POS_IN_A
 			}
 		} else {
-			result.BoundExtruders = []uint8{}
+			result.BoundExtruders = []ExtruderID{}
 		}
 	} else {
-		result.BoundExtruders = []uint8{uint8(extruderID)}
+		result.BoundExtruders = []ExtruderID{ExtruderID(extruderID)}
 	}
 
 	return result
@@ -322,13 +357,16 @@ func decodeTray(raw *protocol.TrayReport) Tray {
 
 		Diameter: parseFloat32(raw.TrayDiameter),
 
-		RFIDUID: raw.TagUID,
-		UUID:    raw.TrayUUID,
+		RFID: RFIDInfo{
+			UID:  raw.TagUID,
+			UUID: raw.TrayUUID,
+		},
 
-		BedTemp: parseInt(raw.BedTemp),
-
-		MinNozzleTemp: parseInt(raw.NozzleTempMin),
-		MaxNozzleTemp: parseInt(raw.NozzleTempMax),
+		TemperatureInfo: TemperatureRequirements{
+			MinNozzleTemp: parseInt(raw.NozzleTempMin),
+			MaxNozzleTemp: parseInt(raw.NozzleTempMax),
+			BedTemp:       parseInt(raw.BedTemp),
+		},
 	}
 
 	for _, col := range raw.Cols {
@@ -344,7 +382,7 @@ func decodeTray(raw *protocol.TrayReport) Tray {
 		remain.Grams = raw.RemainingGrams
 	}
 
-	tray.Remaining = remain
+	tray.Filament = FilamentInfo{remain}
 
 	return tray
 }

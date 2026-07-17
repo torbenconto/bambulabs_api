@@ -75,7 +75,7 @@ type printer struct {
 
 // NewPrinter creates a new [printer] object and attempts both an MQTT and FTP connection using provided options
 // If the MQTT connection fails, the construction fails. If the FTP fails, construction will succeed but remain in a degraded state.
-func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
+func NewPrinter(parent context.Context, cfg *Config) (*printer, error) {
 	ctx, cancel := context.WithCancel(parent)
 
 	// Assign default ports if none provided.
@@ -121,13 +121,16 @@ func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 	}
 
 	p := &printer{
-		cfg: cfg,
+		cfg: *cfg,
 
 		mqtt: mc,
 		ftp:  fc,
 
 		done:   make(chan struct{}),
 		cancel: cancel,
+
+		decoder: *NewDecoder(cfg.Model),
+		state:   *NewState(),
 	}
 
 	if err := p.mqtt.WaitConnected(ctx); err != nil {
