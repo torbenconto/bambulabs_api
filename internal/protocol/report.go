@@ -291,8 +291,7 @@ type TrayReport struct {
 	NozzleTempMax string `json:"nozzle_temp_max,omitempty"`
 	NozzleTempMin string `json:"nozzle_temp_min,omitempty"`
 
-	Remaining      int  `json:"remain,omitempty"`
-	RemainingGrams *int `json:"remain_g,omitempty"`
+	Remaining int `json:"remain,omitempty"`
 
 	State int `json:"state,omitempty"`
 

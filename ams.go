@@ -168,7 +168,7 @@ func (a *AMSDecoder) decodeAMSModel(info string) AMSModel {
 		return a.defaultAMSModel()
 	}
 
-	return decodeAMSInfo(info, false).Model
+	return decodeAMSInfo(info).Model
 }
 
 func (a *AMSDecoder) defaultAMSModel() AMSModel {
@@ -186,7 +186,7 @@ type amsInfo struct {
 	SwitcherPosition uint8
 }
 
-func decodeAMSInfo(info string, hasFilamentSwitch bool) amsInfo {
+func decodeAMSInfo(info string) amsInfo {
 	var result amsInfo
 
 	raw, err := strconv.ParseUint(info, 16, 64)
@@ -256,11 +256,7 @@ func (a *AMSDecoder) decodeTray(raw *protocol.TrayReport) Tray {
 
 	remain := RemainingFilament{
 		Percent: (parseInt(raw.TrayWeight) * raw.Remaining) / 100,
-		Grams:   nil,
-	}
-
-	if raw.RemainingGrams != nil {
-		remain.Grams = raw.RemainingGrams
+		Grams:   nil, // TODO: explore
 	}
 
 	tray.Filament = FilamentInfo{remain}
