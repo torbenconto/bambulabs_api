@@ -37,10 +37,15 @@ func (a AMSModel) String() string {
 
 type AMSSystem struct {
 	ams []AMS
+	vt  Tray // "vitrual tray", external spool outside of ams
 }
 
 func (a AMSSystem) Units() []AMS {
 	return a.ams
+}
+
+func (a AMSSystem) ExternalTray() Tray {
+	return a.vt
 }
 
 func (a AMSSystem) Get(id int) *AMS {
@@ -155,6 +160,7 @@ func (a *AMSDecoder) Apply(p *printer, report *protocol.Report) {
 	}
 
 	p.AMS.ams = decodedUnits
+	p.AMS.vt = a.decodeTray(report.Print.VtTray)
 }
 
 func (a *AMSDecoder) decodeAMSModel(info string) AMSModel {
