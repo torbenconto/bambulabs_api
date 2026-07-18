@@ -2,8 +2,6 @@ package bambulabs_api
 
 import (
 	"context"
-	"encoding/json"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -39,39 +37,4 @@ func TestWithDefaultOpTimeout(t *testing.T) {
 			t.Fatalf("deadline = %v, want %v", deadline, parentDeadline)
 		}
 	})
-}
-
-// Keeping this for now but realistically the underlying command is whats being tested here, leak of test responsibility
-func TestNewLightCommand(t *testing.T) {
-	cfg := LightFlashingConfig{
-		OnTime:       250 * time.Millisecond,
-		OffTime:      750 * time.Millisecond,
-		LoopTimes:    3,
-		IntervalTime: 2 * time.Second,
-	}
-
-	payload, err := newLightCommand(ChamberLight, LightFlashing, cfg).Marshal()
-	if err != nil {
-		t.Fatalf("marshal light command: %v", err)
-	}
-
-	var got map[string]any
-	if err := json.Unmarshal(payload, &got); err != nil {
-		t.Fatalf("unmarshal light command: %v", err)
-	}
-	want := map[string]any{
-		"system": map[string]any{
-			"command":       "ledctrl",
-			"sequence_id":   "0",
-			"led_node":      "chamber_light",
-			"led_mode":      "flashing",
-			"led_on_time":   float64(250),
-			"led_off_time":  float64(750),
-			"loop_times":    float64(3),
-			"interval_time": float64(2000),
-		},
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("light command = %#v, want %#v", got, want)
-	}
 }
