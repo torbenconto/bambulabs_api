@@ -59,11 +59,27 @@ func (a AMSSystem) Get(id int) *AMS {
 }
 
 type AMS struct {
-	ID int
+	ID       int
+	humidity *HumidityInfo
 
 	Model AMSModel
 
 	Trays []Tray
+}
+
+type HumidityInfo struct {
+	HumidityLevel int // dont know scale, should use enum
+	RawHumidity   int // unsure of significance
+}
+
+// Returns current humidity information within a [HumidityInfo] struct along with a boolean indicating prescence
+// Not all AMS models and printers support humdity sensing
+func (a AMS) Humidity() (HumidityInfo, bool) {
+	if a.humidity == nil {
+		return HumidityInfo{}, false
+	}
+
+	return *a.humidity, true
 }
 
 func (a AMS) Tray(slot int) *Tray {
@@ -150,6 +166,10 @@ func (a *AMSDecoder) Apply(p *printer, report *protocol.Report) {
 			ID:    parseInt(rawUnit.ID),
 			Model: a.decodeAMSModel(rawUnit.Info), // info is "" if empty
 			Trays: make([]Tray, 0, len(rawUnit.Tray)),
+			humidity: &HumidityInfo{
+				HumidityLevel: parseInt(rawUnit.Humidity),
+				RawHumidity:   parseInt(rawUnit.HumidityRaw),
+			},
 		}
 
 		for _, rawTray := range rawUnit.Tray {
