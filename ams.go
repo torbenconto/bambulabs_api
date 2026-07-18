@@ -175,8 +175,8 @@ func (a *AMSDecoder) defaultAMSModel() AMSModel {
 }
 
 type amsInfo struct {
-	Model            AMSModel
-	BoundExtruders   []ExtruderID
+	Model AMSModel
+	// BoundExtruders   []ExtruderID
 	SwitcherPosition uint8
 }
 
@@ -185,7 +185,7 @@ func decodeAMSInfo(info string, hasFilamentSwitch bool) amsInfo {
 
 	raw, err := strconv.ParseUint(info, 16, 64)
 	if err != nil {
-		result.BoundExtruders = []ExtruderID{MainExtruder}
+		// result.BoundExtruders = []ExtruderID{MainExtruder}
 		return result
 	}
 
@@ -193,30 +193,30 @@ func decodeAMSInfo(info string, hasFilamentSwitch bool) amsInfo {
 		getFlagBits(raw, 0, 4),
 	)
 
-	extruderID := getFlagBits(raw, 8, 4)
+	// extruderID := getFlagBits(raw, 8, 4)
 
-	if extruderID == 0xE {
-		if hasFilamentSwitch {
-			bindSwitch := getFlagBits(raw, 24, 4)
+	// if extruderID == 0xE {
+	// 	if hasFilamentSwitch {
+	// 		bindSwitch := getFlagBits(raw, 24, 4)
 
-			if bindSwitch == 0 || bindSwitch == 1 {
-				result.BoundExtruders = []ExtruderID{
-					MainExtruder,
-					DeputyExtruder,
-				}
-			}
+	// 		if bindSwitch == 0 || bindSwitch == 1 {
+	// 			result.BoundExtruders = []ExtruderID{
+	// 				MainExtruder,
+	// 				DeputyExtruder,
+	// 			}
+	// 		}
 
-			if bindSwitch == 0 {
-				result.SwitcherPosition = 0 // POS_IN_B
-			} else {
-				result.SwitcherPosition = 1 // POS_IN_A
-			}
-		} else {
-			result.BoundExtruders = []ExtruderID{}
-		}
-	} else {
-		result.BoundExtruders = []ExtruderID{ExtruderID(extruderID)}
-	}
+	// 		if bindSwitch == 0 {
+	// 			result.SwitcherPosition = 0 // POS_IN_B
+	// 		} else {
+	// 			result.SwitcherPosition = 1 // POS_IN_A
+	// 		}
+	// 	} else {
+	// 		result.BoundExtruders = []ExtruderID{}
+	// 	}
+	// } else {
+	// 	result.BoundExtruders = []ExtruderID{ExtruderID(extruderID)}
+	// }
 
 	return result
 }

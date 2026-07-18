@@ -49,10 +49,10 @@ type printer struct {
 	mqtt *mqtt.MqttClient
 	ftp  *ftp.FtpClient
 
-	AMS       *AMSSystem
-	Extruders *ExtruderSystem
-	Nozzles   *NozzleSystem
-	Lights    *LightSystem
+	AMS *AMSSystem
+	// Extruders *ExtruderSystem
+	// Nozzles   *NozzleSystem
+	// Lights    *LightSystem
 	// Fans      *FanSystem
 	// Files     *FileSystem
 
