@@ -1,6 +1,11 @@
 package bambulabs_api
 
-import "image/color"
+import (
+	"image/color"
+	"strconv"
+
+	"github.com/torbenconto/bambulabs_api/internal/protocol"
+)
 
 type AMSModel uint8
 
@@ -108,4 +113,151 @@ type TemperatureRequirements struct {
 	MinNozzleTemp int
 	MaxNozzleTemp int
 	BedTemp       int
+}
+
+type AMSDecoder struct {
+	model         Model
+	commandClient CommandClient
+}
+
+func NewAMSDecoder(model Model, commandClient CommandClient) *AMSDecoder {
+	return &AMSDecoder{
+		model:         model,
+		commandClient: commandClient,
+	}
+}
+
+func (a *AMSDecoder) Apply(p *printer, report *protocol.Report) {
+	if report.Print == nil || report.Print.AMS == nil {
+		return
+	}
+
+	rawAMSUnits := report.Print.AMS.AMS
+	if len(rawAMSUnits) == 0 /* [[unlikely]] */ {
+		return
+	}
+
+	p.cap.Add(CapabilityAMS)
+
+	decodedUnits := make([]AMS, 0, len(rawAMSUnits))
+	for _, rawUnit := range rawAMSUnits {
+		decodedUnit := AMS{ // TODO: add humitidity and drying stuff
+			ID:    parseInt(rawUnit.ID),
+			Model: a.decodeAMSModel(rawUnit.Info), // info is "" if empty
+			Trays: make([]Tray, 0, len(rawUnit.Tray)),
+		}
+
+		for _, rawTray := range rawUnit.Tray {
+			decodedUnit.Trays = append(decodedUnit.Trays, a.decodeTray(&rawTray))
+		}
+
+		decodedUnits = append(decodedUnits, decodedUnit)
+	}
+
+	p.AMS.ams = decodedUnits
+}
+
+func (a *AMSDecoder) decodeAMSModel(info string) AMSModel {
+	if info == "" {
+		return a.defaultAMSModel()
+	}
+
+	return decodeAMSInfo(info, false).Model
+}
+
+func (a *AMSDecoder) defaultAMSModel() AMSModel {
+	switch a.model {
+	case ModelA1, ModelA1Mini:
+		return AMSModelLite
+	default:
+		return AMSModelBase
+	}
+}
+
+type amsInfo struct {
+	Model            AMSModel
+	BoundExtruders   []ExtruderID
+	SwitcherPosition uint8
+}
+
+func decodeAMSInfo(info string, hasFilamentSwitch bool) amsInfo {
+	var result amsInfo
+
+	raw, err := strconv.ParseUint(info, 16, 64)
+	if err != nil {
+		result.BoundExtruders = []ExtruderID{MainExtruder}
+		return result
+	}
+
+	result.Model = AMSModel(
+		getFlagBits(raw, 0, 4),
+	)
+
+	extruderID := getFlagBits(raw, 8, 4)
+
+	if extruderID == 0xE {
+		if hasFilamentSwitch {
+			bindSwitch := getFlagBits(raw, 24, 4)
+
+			if bindSwitch == 0 || bindSwitch == 1 {
+				result.BoundExtruders = []ExtruderID{
+					MainExtruder,
+					DeputyExtruder,
+				}
+			}
+
+			if bindSwitch == 0 {
+				result.SwitcherPosition = 0 // POS_IN_B
+			} else {
+				result.SwitcherPosition = 1 // POS_IN_A
+			}
+		} else {
+			result.BoundExtruders = []ExtruderID{}
+		}
+	} else {
+		result.BoundExtruders = []ExtruderID{ExtruderID(extruderID)}
+	}
+
+	return result
+}
+
+func getFlagBits(value uint64, offset uint, size uint) uint64 {
+	mask := uint64((1 << size) - 1)
+	return (value >> offset) & mask
+}
+
+func (a *AMSDecoder) decodeTray(raw *protocol.TrayReport) Tray {
+	tray := Tray{
+		Color: decodeColor(raw.TrayColor),
+
+		Diameter: parseFloat32(raw.TrayDiameter),
+
+		RFID: RFIDInfo{
+			UID:  raw.TagUID,
+			UUID: raw.TrayUUID,
+		},
+
+		TemperatureInfo: TemperatureRequirements{
+			MinNozzleTemp: parseInt(raw.NozzleTempMin),
+			MaxNozzleTemp: parseInt(raw.NozzleTempMax),
+			BedTemp:       parseInt(raw.BedTemp),
+		},
+	}
+
+	for _, col := range raw.Cols {
+		tray.Colors = append(tray.Colors, decodeColor(col))
+	}
+
+	remain := RemainingFilament{
+		Percent: (parseInt(raw.TrayWeight) * raw.Remaining) / 100,
+		Grams:   nil,
+	}
+
+	if raw.RemainingGrams != nil {
+		remain.Grams = raw.RemainingGrams
+	}
+
+	tray.Filament = FilamentInfo{remain}
+
+	return tray
 }

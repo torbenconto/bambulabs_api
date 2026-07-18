@@ -39,3 +39,6 @@ func DefaultLightFlashingConfig() LightFlashingConfig {
 
 // I know what you're thinking but hear me out, the open-air printers use ChamberLight for their WorkLight which makes no sense
 // WorkLight is defined but not used so it'll likely change in the future
+
+type LightSystem struct {
+}
