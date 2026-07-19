@@ -59,27 +59,12 @@ func (a AMSSystem) Get(id int) *AMS {
 }
 
 type AMS struct {
-	ID       int
-	humidity *HumidityInfo
+	ID            int
+	HumidityLevel int
 
 	Model AMSModel
 
 	Trays []Tray
-}
-
-type HumidityInfo struct {
-	HumidityLevel int // dont know scale, should use enum
-	RawHumidity   int // unsure of significance
-}
-
-// Returns current humidity information within a [HumidityInfo] struct along with a boolean indicating prescence
-// Not all AMS models and printers support humdity sensing
-func (a AMS) Humidity() (HumidityInfo, bool) {
-	if a.humidity == nil {
-		return HumidityInfo{}, false
-	}
-
-	return *a.humidity, true
 }
 
 func (a AMS) Tray(slot int) *Tray {
@@ -92,37 +77,27 @@ func (a AMS) Tray(slot int) *Tray {
 
 func (a AMS) HasFilament(slot int) bool {
 	tray := a.Tray(slot)
-	return tray != nil && tray.Filament.Remaining.Percent > 0
+	return tray != nil && tray.Filament.RemainingPercent > 0
 }
 
 type Tray struct {
 	Slot int
 
-	Color color.RGBA
-
-	// For multi-color filament
-	Colors []color.RGBA
-
-	Material string
-
-	Diameter float32
-
 	Filament FilamentInfo
 
 	RFID RFIDInfo
-
-	SuggestedBedTemp int
 
 	TemperatureInfo TemperatureRequirements
 }
 
 type FilamentInfo struct {
-	Remaining RemainingFilament
-}
+	RemainingPercent int
+	Material         string
+	Diameter         float32
+	Color            color.RGBA
 
-type RemainingFilament struct {
-	Percent int
-	Grams   *int
+	// For multi-color filament
+	Colors []color.RGBA
 }
 
 type RFIDInfo struct {
@@ -163,13 +138,10 @@ func (a *AMSDecoder) Apply(p *printer, report *protocol.Report) {
 	decodedUnits := make([]AMS, 0, len(rawAMSUnits))
 	for _, rawUnit := range rawAMSUnits {
 		decodedUnit := AMS{ // TODO: add humitidity and drying stuff
-			ID:    parseInt(rawUnit.ID),
-			Model: a.decodeAMSModel(rawUnit.Info), // info is "" if empty
-			Trays: make([]Tray, 0, len(rawUnit.Tray)),
-			humidity: &HumidityInfo{
-				HumidityLevel: parseInt(rawUnit.Humidity),
-				RawHumidity:   parseInt(rawUnit.HumidityRaw),
-			},
+			ID:            parseInt(rawUnit.ID),
+			Model:         a.decodeAMSModel(rawUnit.Info), // info is "" if empty
+			Trays:         make([]Tray, 0, len(rawUnit.Tray)),
+			HumidityLevel: parseInt(rawUnit.Humidity),
 		}
 
 		for _, rawTray := range rawUnit.Tray {
@@ -253,11 +225,22 @@ func getFlagBits(value uint64, offset uint, size uint) uint64 {
 }
 
 func (a *AMSDecoder) decodeTray(raw *protocol.TrayReport) Tray {
+
+	decodedColors := make([]color.RGBA, 0, len(raw.Cols))
+	for _, col := range raw.Cols {
+		decodedColors = append(decodedColors, decodeColor(col))
+	}
+
+	filamentInfo := FilamentInfo{
+		RemainingPercent: raw.Remaining,
+		Color:            decodeColor(raw.TrayColor),
+		Colors:           decodedColors,
+		Diameter:         parseFloat32(raw.TrayDiameter),
+		Material:         raw.TrayType,
+	}
+
 	tray := Tray{
-		Color: decodeColor(raw.TrayColor),
-
-		Diameter: parseFloat32(raw.TrayDiameter),
-
+		Slot: parseInt(raw.ID),
 		RFID: RFIDInfo{
 			UID:  raw.TagUID,
 			UUID: raw.TrayUUID,
@@ -268,18 +251,9 @@ func (a *AMSDecoder) decodeTray(raw *protocol.TrayReport) Tray {
 			MaxNozzleTemp: parseInt(raw.NozzleTempMax),
 			BedTemp:       parseInt(raw.BedTemp),
 		},
-	}
 
-	for _, col := range raw.Cols {
-		tray.Colors = append(tray.Colors, decodeColor(col))
+		Filament: filamentInfo,
 	}
-
-	remain := RemainingFilament{
-		Percent: (parseInt(raw.TrayWeight) * raw.Remaining) / 100,
-		Grams:   nil, // TODO: explore
-	}
-
-	tray.Filament = FilamentInfo{remain}
 
 	return tray
 }
