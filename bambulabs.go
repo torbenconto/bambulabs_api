@@ -38,6 +38,7 @@ const (
 	ModelA1
 	ModelA2L
 	ModelP1S
+	ModelP1P
 	ModelP2S
 	ModelX1E
 	ModelX1C

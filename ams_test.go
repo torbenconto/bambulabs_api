@@ -9,15 +9,52 @@ import (
 )
 
 func TestAMSDecoder(t *testing.T) {
-	t.Run("a1/AMS-Lite", func(t *testing.T) {
+	t.Run("a1/default AMS-Lite", func(t *testing.T) {
 		p := newTestPrinter(t, ModelA1, "a1.json")
 
 		got := requireAMS(t, p, 0)
 
 		assert.Equal(t,
-			expectedA1AMSLite(),
+			expectedA1AMS(),
 			*got,
 		)
+	})
+
+	t.Run("a1/external tray", func(t *testing.T) {
+		p := newTestPrinter(t, ModelA1, "a1.json")
+
+		require.NotNil(t, p.AMS)
+
+		assert.Equal(t,
+			expectedA1ExternalTray(),
+			p.AMS.vt,
+		)
+	})
+
+	t.Run("h2dpro/explicit AMS-Pro + AMS-HT", func(t *testing.T) {
+		p := newTestPrinter(t, ModelH2DPro, "h2dpro.json")
+
+		got := requireAMS(t, p, 0)
+
+		assert.Equal(t,
+			expectedH2DProAMS0(),
+			*got,
+		)
+
+		got1 := requireAMS(t, p, 1)
+		assert.Equal(t,
+			expectedH2DProAMS1(),
+			*got1,
+		)
+
+	})
+
+	t.Run("p1/no AMS", func(t *testing.T) {
+		p := newTestPrinter(t, ModelP1P, "p1p_no_ams.json")
+
+		require.NotNil(t, p.AMS) // AmsSystem should still be present even with no ams in data
+		require.False(t, p.cap.Has(CapabilityAMS))
+		require.Len(t, p.AMS.ams, 0) // dont use .Units(), move that to unit test
 	})
 }
 
@@ -26,13 +63,74 @@ func requireAMS(t *testing.T, p *printer, id int) *AMS {
 
 	require.NotNil(t, p.AMS)
 	require.True(t, p.cap.Has(CapabilityAMS))
-
+	require.GreaterOrEqual(t, id, 0)
 	require.Less(t, id, len(p.AMS.ams))
 
 	return &p.AMS.ams[id]
 }
 
-func expectedA1AMSLite() AMS {
+func expectedH2DProAMS0() AMS {
+	return AMS{
+		ID:            0,
+		Model:         AMSModelPro,
+		HumidityLevel: 5,
+
+		Trays: []Tray{
+			expectedH2DProAMS0Tray(0),
+			expectedH2DProAMS0Tray(1),
+			expectedH2DProAMS0Tray(2),
+			expectedH2DProAMS0Tray(3),
+		},
+	}
+}
+
+func expectedH2DProAMS1() AMS {
+	return AMS{
+		ID:            128,
+		Model:         AMSModelHighTemp,
+		HumidityLevel: 0,
+		Trays: []Tray{
+			expectedH2DProAMS1Tray0(),
+		},
+	}
+}
+
+func expectedH2DProAMS1Tray0() Tray {
+	trayColor := color.RGBA{0xC1, 0x2E, 0x1F, 0xFF}
+
+	return Tray{
+		Slot: 0,
+
+		Filament: FilamentInfo{
+			RemainingPercent: 87,
+			Material:         "PLA",
+			Diameter:         1.75,
+			Color:            trayColor,
+			Colors: []color.RGBA{
+				trayColor,
+			},
+		},
+
+		RFID: RFIDInfo{
+			UID:  "B10B8F0F00080100",
+			UUID: "28DB4DCAB3C348CC9C29E16D52DABFCC",
+		},
+
+		TemperatureInfo: TemperatureRequirements{
+			MinNozzleTemp: 190,
+			MaxNozzleTemp: 230,
+			BedTemp:       0,
+		},
+	}
+}
+
+func expectedH2DProAMS0Tray(slot int) Tray {
+	return Tray{
+		Slot: slot,
+	}
+}
+
+func expectedA1AMS() AMS {
 	return AMS{
 		ID:    0,
 		Model: AMSModelLite,
@@ -61,6 +159,35 @@ func expectedA1Tray(slot int, trayColor color.RGBA) Tray {
 			Colors: []color.RGBA{
 				trayColor,
 			},
+
+			Material: "PLA",
+
+			Diameter: 0.0,
+		},
+
+		RFID: RFIDInfo{
+			UID:  "0000000000000000",
+			UUID: "00000000000000000000000000000000",
+		},
+
+		TemperatureInfo: TemperatureRequirements{
+			MinNozzleTemp: 190,
+			MaxNozzleTemp: 240,
+			BedTemp:       0,
+		},
+	}
+}
+
+func expectedA1ExternalTray() Tray {
+	trayColor := color.RGBA{0xFF, 0xFF, 0xFF, 0xFF}
+	return Tray{
+		Slot: 254,
+
+		Filament: FilamentInfo{
+
+			RemainingPercent: 0,
+
+			Color: trayColor,
 
 			Material: "PLA",
 

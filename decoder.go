@@ -24,7 +24,7 @@ func (d *Decoder) Apply(p *printer, msg *protocol.Report) error { // mutates sta
 }
 
 func decodeColor(raw string) color.RGBA {
-	defaultColor := color.RGBA{255, 255, 255, 255}
+	defaultColor := color.RGBA{}
 
 	if raw == "" {
 		return defaultColor
