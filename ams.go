@@ -75,9 +75,8 @@ func (a AMS) Tray(slot int) *Tray {
 	return &a.Trays[slot]
 }
 
-func (a AMS) HasFilament(slot int) bool {
-	tray := a.Tray(slot)
-	return tray != nil && tray.Filament.RemainingPercent > 0
+func (t Tray) HasFilament() bool {
+	return t.Filament.RemainingPercent > 0 || t.Filament.Material != ""
 }
 
 type Tray struct {
