@@ -50,6 +50,21 @@ const (
 	ModelX2D
 )
 
+// returns minimum guaranteed [Capability] for a given [Model]
+// func (m Model) Capability() Capability {
+// 	switch m {
+// 	case ModelA1, ModelA1Mini, ModelA2L, ModelP1P, ModelP1S, ModelUnknown:
+// 		return CapabilityChamberLight
+// 	case ModelX1C, ModelX1E, ModelX2D, ModelP2S:
+// 		return CapabilityChamberLight | CapabilityWorkLight
+// 	case ModelH2, ModelH2S, ModelH2C, ModelH2D, ModelH2DPro:
+// 		return CapabilityChamberLight | CapabilityWorkLight | CapabilityChamberLight2
+
+// 	default:
+// 		return 0
+// 	}
+// }
+
 // Client manages connections to one or more Bambu Lab printers.
 //
 // A Client owns the lifetime of all printers added to it. Closing a Client

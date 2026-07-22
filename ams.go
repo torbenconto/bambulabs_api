@@ -40,15 +40,19 @@ type AMSSystem struct {
 	vt  Tray // "vitrual tray", external spool outside of ams
 }
 
-func (a AMSSystem) Units() []AMS {
+func NewAMSSystem() *AMSSystem {
+	return &AMSSystem{}
+}
+
+func (a *AMSSystem) Units() []AMS {
 	return a.ams
 }
 
-func (a AMSSystem) ExternalTray() Tray {
+func (a *AMSSystem) ExternalTray() Tray {
 	return a.vt
 }
 
-func (a AMSSystem) Get(id int) *AMS {
+func (a *AMSSystem) Get(id int) *AMS {
 	for i := range a.ams {
 		if a.ams[i].ID == id {
 			return &a.ams[i]
@@ -111,14 +115,12 @@ type TemperatureRequirements struct {
 }
 
 type AMSDecoder struct {
-	model         Model
-	commandClient CommandClient
+	model Model
 }
 
-func NewAMSDecoder(model Model, commandClient CommandClient) *AMSDecoder {
+func NewAMSDecoder(model Model) *AMSDecoder {
 	return &AMSDecoder{
-		model:         model,
-		commandClient: commandClient,
+		model: model,
 	}
 }
 

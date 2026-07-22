@@ -9,17 +9,20 @@ import (
 )
 
 type Decoder struct {
-	ams AMSDecoder
+	ams    AMSDecoder
+	lights LightDecoder
 }
 
-func NewDecoder(model Model, commandClient CommandClient) *Decoder {
+func NewDecoder(model Model) *Decoder {
 	return &Decoder{
-		ams: *NewAMSDecoder(model, commandClient),
+		ams:    *NewAMSDecoder(model),
+		lights: *NewLightDecoder(),
 	}
 }
 
 func (d *Decoder) Apply(p *printer, msg *protocol.Report) error { // mutates state based on protocol contents
 	d.ams.Apply(p, msg)
+	d.lights.Apply(p, msg)
 	return nil
 }
 

@@ -23,10 +23,11 @@ func newTestPrinter(tb testing.TB, model Model, reportFile string) *printer {
 		cfg: Config{
 			Model: model,
 		},
-		AMS: &AMSSystem{},
+		AMS:    NewAMSSystem(),
+		Lights: NewLightSystem(fakeCommandClient{}),
 	}
 
-	p.decoder = *NewDecoder(model, fakeCommandClient{})
+	p.decoder = *NewDecoder(model)
 
 	if reportFile != "" {
 		data, err := os.ReadFile(filepath.Join("fixtures", reportFile))

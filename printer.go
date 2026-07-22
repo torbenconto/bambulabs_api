@@ -52,7 +52,7 @@ type printer struct {
 	AMS *AMSSystem
 	// Extruders *ExtruderSystem
 	// Nozzles   *NozzleSystem
-	// Lights    *LightSystem
+	Lights *LightSystem
 	// Fans      *FanSystem
 	// Files     *FileSystem
 
@@ -129,7 +129,10 @@ func NewPrinter(parent context.Context, cfg *Config) (*printer, error) {
 		done:   make(chan struct{}),
 		cancel: cancel,
 
-		decoder: *NewDecoder(cfg.Model, commandClient),
+		Lights: NewLightSystem(commandClient),
+		AMS:    NewAMSSystem(),
+
+		decoder: *NewDecoder(cfg.Model),
 	}
 
 	if err := p.mqtt.WaitConnected(ctx); err != nil {
@@ -190,7 +193,6 @@ func (p *printer) updateState(payload []byte) {
 	}
 
 	p.decoder.Apply(p, &report)
-
 }
 
 // RequestUpdate manually requests a "pushall", updating the printer state. Exercise caution in the interval you use this, especially on lower end printers.
