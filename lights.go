@@ -2,12 +2,14 @@ package bambulabs_api
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/torbenconto/bambulabs_api/internal/protocol"
 )
 
-type light struct {
+// LightInfo represents the ID and current mode of a printer light.
+type LightInfo struct {
 	ID   LightID
 	Mode LightMode
 }
@@ -48,31 +50,49 @@ func DefaultLightFlashingConfig() LightFlashingConfig {
 }
 
 type LightSystem struct {
-	lights        map[LightID]light // current state
+	mu     sync.RWMutex
+	lights map[LightID]LightInfo // current state
+
 	commandClient CommandClient
 }
 
 func NewLightSystem(commandClient CommandClient) *LightSystem {
 	return &LightSystem{
-		lights:        make(map[LightID]light, 6),
+		lights:        make(map[LightID]LightInfo, 6),
 		commandClient: commandClient,
 	}
 }
 
-func (l *LightSystem) Set(ctx context.Context, light LightID, mode LightMode) error {
-	if _, err := l.get(light); err != nil {
+// Get returns the last known state of the given light, as reported by the
+// printer. It returns [ErrLightNotAvalible] if the printer hasn't reported
+// this light yet.
+func (l *LightSystem) Get(id LightID) (LightInfo, error) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+
+	lt, ok := l.lights[id]
+	if !ok {
+		return LightInfo{}, ErrLightNotAvalible
+	}
+
+	return lt, nil
+}
+
+func (l *LightSystem) Set(ctx context.Context, id LightID, mode LightMode) error {
+	if _, err := l.Get(id); err != nil {
 		return err
 	}
 
-	return l.commandClient.Send(ctx, newLightCommand(light, mode, DefaultLightFlashingConfig()))
+	return l.commandClient.Send(ctx, newLightCommand(id, mode, DefaultLightFlashingConfig()))
 }
 
-func (l *LightSystem) get(id LightID) (light, error) {
-	if light, ok := l.lights[id]; ok {
-		return light, nil
-	}
+// apply records a light state reported by the printer. Called by
+// [LightDecoder] while holding the printer's decode lock.
+func (l *LightSystem) apply(id LightID, mode LightMode) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 
-	return light{}, ErrLightNotAvalible
+	l.lights[id] = LightInfo{ID: id, Mode: mode}
 }
 
 func newLightCommand(light LightID, mode LightMode, cfg LightFlashingConfig) *protocol.Command {
@@ -86,8 +106,7 @@ func newLightCommand(light LightID, mode LightMode, cfg LightFlashingConfig) *pr
 		Set("interval_time", cfg.IntervalTime.Milliseconds())
 }
 
-type LightDecoder struct {
-}
+type LightDecoder struct{}
 
 func NewLightDecoder() *LightDecoder {
 	return &LightDecoder{}
@@ -98,14 +117,7 @@ func (l *LightDecoder) Apply(p *printer, report *protocol.Report) {
 		return
 	}
 
-	lightReport := report.Print.LightsReport
-	for _, rawLight := range lightReport {
-		mode := LightMode(rawLight.Mode)
-		id := LightID(rawLight.Node)
-
-		p.Lights.lights[id] = light{
-			ID:   id,
-			Mode: mode,
-		}
+	for _, rawLight := range report.Print.LightsReport {
+		p.Lights.apply(LightID(rawLight.Node), LightMode(rawLight.Mode))
 	}
 }

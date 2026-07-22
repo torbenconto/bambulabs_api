@@ -3,6 +3,7 @@ package bambulabs_api
 import (
 	"image/color"
 	"strconv"
+	"sync"
 
 	"github.com/torbenconto/bambulabs_api/internal/protocol"
 )
@@ -37,6 +38,7 @@ func (a AMSModel) String() string {
 
 type AMSSystem struct {
 	ams []AMS
+	mu  sync.RWMutex
 	vt  Tray // "vitrual tray", external spool outside of ams
 }
 
@@ -45,14 +47,21 @@ func NewAMSSystem() *AMSSystem {
 }
 
 func (a *AMSSystem) Units() []AMS {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	return a.ams
 }
 
 func (a *AMSSystem) ExternalTray() Tray {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
 	return a.vt
 }
 
 func (a *AMSSystem) Get(id int) *AMS {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
 	for i := range a.ams {
 		if a.ams[i].ID == id {
 			return &a.ams[i]
@@ -60,6 +69,18 @@ func (a *AMSSystem) Get(id int) *AMS {
 	}
 
 	return nil
+}
+
+func (a *AMSSystem) setUnits(units []AMS) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.ams = units
+}
+
+func (a *AMSSystem) setExternalTray(t Tray) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.vt = t
 }
 
 type AMS struct {
@@ -125,7 +146,16 @@ func NewAMSDecoder(model Model) *AMSDecoder {
 }
 
 func (a *AMSDecoder) Apply(p *printer, report *protocol.Report) {
-	if report.Print == nil || report.Print.AMS == nil {
+	if report.Print == nil {
+		return
+	}
+
+	// The external spool ("virtual tray") is independent of whether any AMS units exist
+	if report.Print.VtTray != nil {
+		p.AMS.setExternalTray(a.decodeTray(report.Print.VtTray))
+	}
+
+	if report.Print.AMS == nil {
 		return
 	}
 
@@ -140,7 +170,7 @@ func (a *AMSDecoder) Apply(p *printer, report *protocol.Report) {
 	for _, rawUnit := range rawAMSUnits {
 		decodedUnit := AMS{ // TODO: add drying stuff
 			ID:            parseInt(rawUnit.ID),
-			Model:         a.decodeAMSModel(rawUnit.Info), // info is "" if empty
+			Model:         a.decodeAMSModel(rawUnit.Info),
 			Trays:         make([]Tray, 0, len(rawUnit.Tray)),
 			HumidityLevel: parseInt(rawUnit.Humidity),
 		}
@@ -152,8 +182,7 @@ func (a *AMSDecoder) Apply(p *printer, report *protocol.Report) {
 		decodedUnits = append(decodedUnits, decodedUnit)
 	}
 
-	p.AMS.ams = decodedUnits
-	p.AMS.vt = a.decodeTray(report.Print.VtTray)
+	p.AMS.setUnits(decodedUnits)
 }
 
 func (a *AMSDecoder) decodeAMSModel(info string) AMSModel {

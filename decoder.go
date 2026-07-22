@@ -20,10 +20,9 @@ func NewDecoder(model Model) *Decoder {
 	}
 }
 
-func (d *Decoder) Apply(p *printer, msg *protocol.Report) error { // mutates state based on protocol contents
+func (d *Decoder) Apply(p *printer, msg *protocol.Report) {
 	d.ams.Apply(p, msg)
 	d.lights.Apply(p, msg)
-	return nil
 }
 
 func decodeColor(raw string) color.RGBA {

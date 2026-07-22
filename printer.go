@@ -3,6 +3,8 @@ package bambulabs_api
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -64,6 +66,9 @@ type printer struct {
 	done chan struct{}
 
 	cancel context.CancelFunc
+
+	readyOnce sync.Once
+	ready     chan struct{}
 }
 
 // NewPrinter creates a new [printer] object and attempts both an MQTT and FTP connection using provided options
@@ -109,19 +114,24 @@ func NewPrinter(parent context.Context, cfg *Config) (*printer, error) {
 		AccessCode: cfg.AccessCode,
 	})
 
-	fileClient := newFTPFileClient(fc)
+	var (
+		ftpClient  *ftp.FtpClient
+		fileClient FileClient
+	)
 
-	// FTP is non-vital so we'll warn the user and proceed without FTP connection.
+	// FTP is non-vital so we'll warn the user and proceed without file access.
 	if err := fc.Connect(ctx); err != nil {
 		log.Printf("[%s] ftp connect failed, continuing without file access: %v", cfg.SerialNumber, err)
-		fc = nil
+	} else {
+		ftpClient = fc
+		fileClient = newFTPFileClient(fc)
 	}
 
 	p := &printer{
 		cfg: *cfg,
 
 		mqtt: mc,
-		ftp:  fc,
+		ftp:  ftpClient,
 
 		commandClient: commandClient,
 		fileClient:    fileClient,
@@ -133,16 +143,28 @@ func NewPrinter(parent context.Context, cfg *Config) (*printer, error) {
 		AMS:    NewAMSSystem(),
 
 		decoder: *NewDecoder(cfg.Model),
+		ready:   make(chan struct{}),
 	}
 
 	if err := p.mqtt.WaitConnected(ctx); err != nil {
 		_ = mc.Close()
-		_ = fc.Close()
+		if ftpClient != nil {
+			_ = ftpClient.Close()
+		}
 		return nil, err
 	}
-
 	// run state loop (goroutine)
 	p.run(ctx)
+
+	if err := p.awaitInitialState(ctx); err != nil {
+		cancel() // stop run() goroutine
+		<-p.done
+		_ = mc.Close()
+		if ftpClient != nil {
+			_ = ftpClient.Close()
+		}
+		return nil, err
+	}
 
 	return p, nil
 }
@@ -171,6 +193,21 @@ func (p *printer) run(ctx context.Context) {
 	}()
 }
 
+func (p *printer) awaitInitialState(ctx context.Context) error {
+	if err := p.RequestUpdate(ctx); err != nil {
+		return fmt.Errorf("request initial state: %w", err)
+	}
+
+	select {
+	case <-p.ready:
+		return nil
+	case <-p.mqtt.Done():
+		return errors.New("mqtt connection closed before initial state was received")
+	case <-ctx.Done():
+		return fmt.Errorf("timed out waiting for initial printer state: %w", ctx.Err())
+	}
+}
+
 // command publishing helper, possibly include some checks in the future
 func (p *printer) publish(ctx context.Context, cmd *protocol.Command) error {
 	return p.mqtt.Publish(ctx, cmd)
@@ -179,10 +216,6 @@ func (p *printer) publish(ctx context.Context, cmd *protocol.Command) error {
 // updateState takes a raw MQTT payload and attempts to convert it into a [import/mqtt.Message].
 // Failure is not fatal but may represent something severly wrong with the message struct itself.
 func (p *printer) updateState(payload []byte) {
-	// var msg mqtt.Message
-
-	// p.state.Store(&msg)
-
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -193,6 +226,8 @@ func (p *printer) updateState(payload []byte) {
 	}
 
 	p.decoder.Apply(p, &report)
+
+	p.readyOnce.Do(func() { close(p.ready) })
 }
 
 // RequestUpdate manually requests a "pushall", updating the printer state. Exercise caution in the interval you use this, especially on lower end printers.
