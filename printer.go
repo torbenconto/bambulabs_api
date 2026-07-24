@@ -55,7 +55,7 @@ type printer struct {
 	// Extruders *ExtruderSystem
 	// Nozzles   *NozzleSystem
 	Lights *LightSystem
-	// Fans      *FanSystem
+	Fans   *FanSystem
 	// Files     *FileSystem
 
 	cap Capability
@@ -141,6 +141,7 @@ func NewPrinter(parent context.Context, cfg *Config) (*printer, error) {
 
 		Lights: NewLightSystem(commandClient),
 		AMS:    NewAMSSystem(),
+		Fans:   NewFanSystem(commandClient),
 
 		decoder: *NewDecoder(cfg.Model),
 		ready:   make(chan struct{}),

@@ -12,7 +12,7 @@ import (
 
 func TestLightSystem(t *testing.T) {
 	type lightCase struct {
-		id          bambulabs_api.LightID
+		id          bambulabs_api.Light
 		initialMode bambulabs_api.LightMode
 		targetMode  bambulabs_api.LightMode
 	}
@@ -23,7 +23,7 @@ func TestLightSystem(t *testing.T) {
 		reportFile string
 		lights     []lightCase
 		// missing lights this fixture should report ErrLightNotAvalible for
-		unavailable []bambulabs_api.LightID
+		unavailable []bambulabs_api.Light
 	}{
 		{
 			name:       "a1",
@@ -32,7 +32,7 @@ func TestLightSystem(t *testing.T) {
 			lights: []lightCase{
 				{bambulabs_api.ChamberLight, bambulabs_api.LightModeOff, bambulabs_api.LightModeOn},
 			},
-			unavailable: []bambulabs_api.LightID{
+			unavailable: []bambulabs_api.Light{
 				bambulabs_api.WorkLight,
 				bambulabs_api.ChamberLight2,
 			},
@@ -45,7 +45,7 @@ func TestLightSystem(t *testing.T) {
 				{bambulabs_api.ChamberLight, bambulabs_api.LightModeOn, bambulabs_api.LightModeOff},
 				{bambulabs_api.WorkLight, bambulabs_api.LightModeFlashing, bambulabs_api.LightModeOn},
 			},
-			unavailable: []bambulabs_api.LightID{
+			unavailable: []bambulabs_api.Light{
 				bambulabs_api.ChamberLight2,
 			},
 		},
@@ -74,7 +74,7 @@ func TestLightSystem(t *testing.T) {
 			for _, id := range tc.unavailable {
 				t.Run(string(id)+"/unavailable", func(t *testing.T) {
 					_, err := p.Lights.Get(id)
-					require.ErrorIs(t, err, bambulabs_api.ErrLightNotAvalible)
+					require.ErrorIs(t, err, bambulabs_api.ErrLightUnavailable)
 				})
 			}
 		})
@@ -85,7 +85,7 @@ func assertLightTransition(
 	t *testing.T,
 	lights *bambulabs_api.LightSystem,
 	emu *emulator.Emulator,
-	id bambulabs_api.LightID,
+	id bambulabs_api.Light,
 	initialMode, targetMode bambulabs_api.LightMode,
 ) {
 	t.Helper()

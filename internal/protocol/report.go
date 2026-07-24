@@ -52,6 +52,13 @@ type PrintReport struct {
 
 	LightsReport []LightsReport `json:"lights_report,omitempty"`
 
+	AuxPartFan        bool   `json:"aux_part_fan,omitempty"`
+	BigFan1Speed      string `json:"big_fan1_speed,omitempty"`
+	BigFan2Speed      string `json:"big_fan2_speed,omitempty"`
+	CoolingFanSpeed   string `json:"cooling_fan_speed,omitempty"`
+	HeatbreakFanSpeed string `json:"heatbreak_fan_speed,omitempty"`
+	FanGear           int    `json:"fan_gear,omitempty"`
+
 	UpgradeState *UpgradeStateReport `json:"upgrade_state,omitempty"`
 	Upload       *UploadReport       `json:"upload,omitempty"`
 }

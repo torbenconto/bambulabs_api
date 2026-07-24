@@ -8,45 +8,59 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAMSSystem(t *testing.T) {
-	t.Run("AMSSystem/Get()", func(t *testing.T) {
-		ams := AMSSystem{
-			ams: []AMS{
-				{ID: 1},
-				{ID: 3},
-			},
-		}
+func TestAMSSystem_Get(t *testing.T) {
+	t.Run("found", func(t *testing.T) {
+		ams := AMSSystem{ams: []AMS{{ID: 1}, {ID: 3}}}
 
 		require.NotNil(t, ams.Get(1))
 		require.NotNil(t, ams.Get(3))
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		ams := AMSSystem{ams: []AMS{{ID: 1}, {ID: 3}}}
+
 		require.Nil(t, ams.Get(2))
 	})
 
-	t.Run("AMS/Tray()", func(t *testing.T) {
-		ams := AMS{
-			Trays: []Tray{{}, {}},
-		}
+	t.Run("empty system", func(t *testing.T) {
+		ams := AMSSystem{}
 
-		require.NotNil(t, ams.Tray(0))
-		require.NotNil(t, ams.Tray(1))
-		assert.Nil(t, ams.Tray(-1))
-		assert.Nil(t, ams.Tray(2))
-	})
-
-	t.Run("Tray/HasFilament()", func(t *testing.T) {
-		empty := Tray{
-			Filament: FilamentInfo{RemainingPercent: 0},
-		}
-
-		full := Tray{
-			Filament: FilamentInfo{RemainingPercent: 100},
-		}
-
-		assert.False(t, empty.HasFilament())
-		assert.True(t, full.HasFilament())
+		require.Nil(t, ams.Get(0))
 	})
 }
 
+func TestAMS_Tray(t *testing.T) {
+	ams := AMS{
+		Trays: []Tray{{}, {}},
+	}
+
+	require.NotNil(t, ams.Tray(0))
+	require.NotNil(t, ams.Tray(1))
+	assert.Nil(t, ams.Tray(-1))
+	assert.Nil(t, ams.Tray(2))
+}
+
+func TestTray_HasFilament(t *testing.T) {
+	t.Run("no percent, no material", func(t *testing.T) {
+		tray := Tray{Filament: FilamentInfo{RemainingPercent: 0, Material: ""}}
+		assert.False(t, tray.HasFilament())
+	})
+
+	t.Run("percent only", func(t *testing.T) {
+		tray := Tray{Filament: FilamentInfo{RemainingPercent: 100, Material: ""}}
+		assert.True(t, tray.HasFilament())
+	})
+
+	t.Run("material only, zero percent", func(t *testing.T) {
+		tray := Tray{Filament: FilamentInfo{RemainingPercent: 0, Material: "PLA"}}
+		assert.True(t, tray.HasFilament())
+	})
+
+	t.Run("both set", func(t *testing.T) {
+		tray := Tray{Filament: FilamentInfo{RemainingPercent: 100, Material: "PLA"}}
+		assert.True(t, tray.HasFilament())
+	})
+}
 func TestAMSDecoder(t *testing.T) {
 	t.Run("a1/default AMS-Lite", func(t *testing.T) {
 		p := newTestPrinter(t, ModelA1, "a1.json")

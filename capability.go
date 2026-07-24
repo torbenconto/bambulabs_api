@@ -10,6 +10,8 @@ const (
 	CapabilityDualExtruder
 	CapabilityFilamentSwitcher
 	CapabilityLazer
+
+	CapabilityAuxFan
 )
 
 func (c *Capability) Add(cap Capability) {

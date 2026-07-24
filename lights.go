@@ -10,17 +10,17 @@ import (
 
 // LightInfo represents the ID and current mode of a printer light.
 type LightInfo struct {
-	ID   LightID
-	Mode LightMode
+	Light Light
+	Mode  LightMode
 }
 
-type LightID string
+type Light string
 
 const (
-	ChamberLight  LightID = "chamber_light"
-	ChamberLight2 LightID = "chamber_light2"
-	WorkLight     LightID = "work_light"
-	HeatbedLight  LightID = "heatbed_light"
+	ChamberLight  Light = "chamber_light"
+	ChamberLight2 Light = "chamber_light2"
+	WorkLight     Light = "work_light"
+	// HeatbedLight  Light = "heatbed_light" unclear
 )
 
 type LightMode string
@@ -51,34 +51,34 @@ func DefaultLightFlashingConfig() LightFlashingConfig {
 
 type LightSystem struct {
 	mu     sync.RWMutex
-	lights map[LightID]LightInfo // current state
+	lights map[Light]LightInfo // current state
 
 	commandClient CommandClient
 }
 
 func NewLightSystem(commandClient CommandClient) *LightSystem {
 	return &LightSystem{
-		lights:        make(map[LightID]LightInfo, 6),
+		lights:        make(map[Light]LightInfo),
 		commandClient: commandClient,
 	}
 }
 
 // Get returns the last known state of the given light, as reported by the
-// printer. It returns [ErrLightNotAvalible] if the printer hasn't reported
+// printer. It returns [ErrLightUnavailable] if the printer hasn't reported
 // this light yet.
-func (l *LightSystem) Get(id LightID) (LightInfo, error) {
+func (l *LightSystem) Get(id Light) (LightInfo, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
 	lt, ok := l.lights[id]
 	if !ok {
-		return LightInfo{}, ErrLightNotAvalible
+		return LightInfo{}, ErrLightUnavailable
 	}
 
 	return lt, nil
 }
 
-func (l *LightSystem) Set(ctx context.Context, id LightID, mode LightMode) error {
+func (l *LightSystem) Set(ctx context.Context, id Light, mode LightMode) error {
 	if _, err := l.Get(id); err != nil {
 		return err
 	}
@@ -88,14 +88,14 @@ func (l *LightSystem) Set(ctx context.Context, id LightID, mode LightMode) error
 
 // apply records a light state reported by the printer. Called by
 // [LightDecoder] while holding the printer's decode lock.
-func (l *LightSystem) apply(id LightID, mode LightMode) {
+func (l *LightSystem) apply(id Light, mode LightMode) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	l.lights[id] = LightInfo{ID: id, Mode: mode}
+	l.lights[id] = LightInfo{Light: id, Mode: mode}
 }
 
-func newLightCommand(light LightID, mode LightMode, cfg LightFlashingConfig) *protocol.Command {
+func newLightCommand(light Light, mode LightMode, cfg LightFlashingConfig) *protocol.Command {
 	return protocol.NewCommand(protocol.System).
 		WithCommand("ledctrl").
 		Set("led_node", light).
@@ -118,6 +118,6 @@ func (l *LightDecoder) Apply(p *printer, report *protocol.Report) {
 	}
 
 	for _, rawLight := range report.Print.LightsReport {
-		p.Lights.apply(LightID(rawLight.Node), LightMode(rawLight.Mode))
+		p.Lights.apply(Light(rawLight.Node), LightMode(rawLight.Mode))
 	}
 }

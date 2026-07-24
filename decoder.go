@@ -2,6 +2,7 @@ package bambulabs_api
 
 import (
 	"image/color"
+	"math"
 	"strconv"
 	"strings"
 
@@ -11,18 +12,21 @@ import (
 type Decoder struct {
 	ams    AMSDecoder
 	lights LightDecoder
+	fans   FanDecoder
 }
 
 func NewDecoder(model Model) *Decoder {
 	return &Decoder{
 		ams:    *NewAMSDecoder(model),
 		lights: *NewLightDecoder(),
+		fans:   *NewFanDecoder(),
 	}
 }
 
 func (d *Decoder) Apply(p *printer, msg *protocol.Report) {
 	d.ams.Apply(p, msg)
 	d.lights.Apply(p, msg)
+	d.fans.Apply(p, msg)
 }
 
 func decodeColor(raw string) color.RGBA {
@@ -83,4 +87,19 @@ func parseInt(raw string) int {
 	}
 
 	return int(conv)
+}
+
+func parsePercent(raw string) int {
+	speed := parseInt(raw)
+	if speed <= 0 {
+		return 0
+	}
+
+	percentage := (float64(speed) / 15) * 100
+	return int(math.Ceil(percentage/10)) * 10
+}
+
+func percentToGCodeSpeed(percent int) int {
+	rounded := int(math.Round(float64(percent)/10)) * 10
+	return int(math.Ceil(255 * float64(rounded) / 100))
 }

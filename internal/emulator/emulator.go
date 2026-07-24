@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"os"
+	"regexp"
+	"strconv"
 	"sync"
 
 	mochi "github.com/mochi-mqtt/server/v2"
@@ -26,6 +29,14 @@ type Emulator struct {
 
 	mu    sync.RWMutex
 	state protocol.Report
+}
+
+var gcodeM106Re = regexp.MustCompile(`^M106 P(\d+) S(\d+)`)
+
+var fanFieldByIndex = map[int]func(*protocol.PrintReport, string){
+	1: func(r *protocol.PrintReport, v string) { r.CoolingFanSpeed = v },
+	2: func(r *protocol.PrintReport, v string) { r.BigFan1Speed = v },
+	3: func(r *protocol.PrintReport, v string) { r.BigFan2Speed = v },
 }
 
 func Start(ctx context.Context, cfg *bambulabs_api.Config, port int, reportFile string) (*Emulator, error) {
@@ -134,7 +145,8 @@ type commandKey struct {
 // causes. Add an entry here whenever the emulator needs to understand a new
 // command (e.g. AMS filament changes, print state transitions).
 var commandHandlers = map[commandKey]func(*Emulator, map[string]any){
-	{msgType: "system", command: "ledctrl"}: (*Emulator).applyLedCtrl,
+	{msgType: "system", command: "ledctrl"}:   (*Emulator).applyLedCtrl,
+	{msgType: "print", command: "gcode_line"}: (*Emulator).applyGcodeLine,
 }
 
 // applyCommand parses a raw MQTT request payload and mutates emulator state
@@ -160,6 +172,38 @@ func (e *Emulator) applyCommand(payload []byte) {
 			handler(e, fields)
 		}
 	}
+}
+
+func (e *Emulator) applyGcodeLine(fields map[string]any) {
+	param, _ := fields["param"].(string)
+
+	matches := gcodeM106Re.FindStringSubmatch(param)
+	if matches == nil {
+		return // not a fan-speed M106 command
+	}
+
+	fanIndex, err1 := strconv.Atoi(matches[1])
+	pwm, err2 := strconv.Atoi(matches[2])
+	if err1 != nil || err2 != nil {
+		return
+	}
+
+	setField, ok := fanFieldByIndex[fanIndex]
+	if !ok {
+		return
+	}
+
+	// The gcode carries a 0-255 PWM value; convert back to the printer's
+	// native 0-15 raw step value, matching what real firmware reports.
+	raw := int(math.Round(float64(pwm) / 255 * 15))
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if e.state.Print == nil {
+		e.state.Print = &protocol.PrintReport{}
+	}
+	setField(e.state.Print, strconv.Itoa(raw))
 }
 
 func (e *Emulator) applyLedCtrl(fields map[string]any) {
