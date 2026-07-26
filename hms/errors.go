@@ -553,6 +553,7 @@ var HmsErrors = map[string]string{
 	"HMS_1A00-2100-0001-0002": "Power loss occurred while fetching/nesting the hotend. Please nest the hotend from slot 1 on the rack back onto the toolhead, then move the toolhead to the center of the build plate.",
 	"HMS_1A00-2100-0002-0001": "Power loss occurred while fetching/nesting hotend. Check if the hotend is in slot 1 on the rack. If not, nest it back to that slot and move the toolhead to the center of the build plate.",
 	"HMS_1A00-2100-0002-0002": "Power loss occurred while fetching/nesting the hotend. Check if it\u2019s mounted on the toolhead. If not, fetch it from slot 1 on the rack, nest it onto the toolhead, and move the toolhead to the center of the build plate.",
+	"HMS_1A00-3000-0001-0040": "The toolhead induction hotend presence detection sensor is open-circuit. Please reconnect the sensor cable or replace the sensor.",
 	"HMS_1A00-3000-0001-0041": "The toolhead induction hotend presence detection sensor is short-circuit. Please reconnect the sensor cable or replace the sensor.",
 	"HMS_1A00-E000-0001-0005": "The Induction Hotend Rack is blocked by an obstacle during homing. Please clear any obstructions from its movement path.",
 	"HMS_1A00-E000-0001-0006": "Induction Hotend Rack homing distance is too long. The timing belt may be loose. Please check and tighten.",
