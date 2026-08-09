@@ -264,6 +264,7 @@ var HmsErrors = map[string]string{
 	"HMS_0500-0400-0001-0046": "The firmware of Laser Module does not match the printer. Please upgrade it on the \"Firmware\" page.",
 	"HMS_0500-0400-0001-0047": "The firmware of Air Pump does not match the printer. Please upgrade it on the \"Firmware\" page.",
 	"HMS_0500-0400-0001-0048": "The firmware of Cutting Module does not match the printer. Please upgrade it on the \"Firmware\" page.",
+	"HMS_0500-0400-0001-0049": "Communication error detected with AMS, AMS lite or AMS HT. Please reconnect the module cable or restart the printer when it is idle.",
 	"HMS_0500-0400-0001-0051": "Emergency Stop Button is not in the right position. Please follow the Wiki to install it.",
 	"HMS_0500-0400-0001-0052": "Safety Key is not inserted. Please follow the Wiki to install it.",
 	"HMS_0500-0400-0002-0007": "The bed temperature exceeds the filament's vitrification temperature, which may cause a nozzle clog. Please keep the front door of the printer open or lower the bed temperature.",
