@@ -152,7 +152,7 @@ func (a *AMSDecoder) Apply(p *printer, report *protocol.Report) {
 
 	// The external spool ("virtual tray") is independent of whether any AMS units exist
 	if report.Print.VtTray != nil {
-		p.AMS.setExternalTray(a.decodeTray(report.Print.VtTray))
+		p.AMS().setExternalTray(a.decodeTray(report.Print.VtTray))
 	}
 
 	if report.Print.AMS == nil {
@@ -182,7 +182,7 @@ func (a *AMSDecoder) Apply(p *printer, report *protocol.Report) {
 		decodedUnits = append(decodedUnits, decodedUnit)
 	}
 
-	p.AMS.setUnits(decodedUnits)
+	p.AMS().setUnits(decodedUnits)
 }
 
 func (a *AMSDecoder) decodeAMSModel(info string) AMSModel {

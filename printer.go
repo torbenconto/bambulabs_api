@@ -40,6 +40,10 @@ type Config struct {
 type Printer interface {
 	Serial() string
 	Close() error
+
+	Lights() *LightSystem
+	AMS() *AMSSystem
+	Fans() *FanSystem
 }
 
 type printer struct {
@@ -51,11 +55,11 @@ type printer struct {
 	mqtt *mqtt.MqttClient
 	ftp  *ftp.FtpClient
 
-	AMS *AMSSystem
+	amsSystem *AMSSystem
 	// Extruders *ExtruderSystem
 	// Nozzles   *NozzleSystem
-	Lights *LightSystem
-	Fans   *FanSystem
+	lightSystem *LightSystem
+	fanSystem   *FanSystem
 	// Files     *FileSystem
 
 	cap Capability
@@ -139,9 +143,9 @@ func NewPrinter(parent context.Context, cfg *Config) (*printer, error) {
 		done:   make(chan struct{}),
 		cancel: cancel,
 
-		Lights: NewLightSystem(commandClient),
-		AMS:    NewAMSSystem(),
-		Fans:   NewFanSystem(commandClient),
+		lightSystem: NewLightSystem(commandClient),
+		amsSystem:   NewAMSSystem(),
+		fanSystem:   NewFanSystem(commandClient),
 
 		decoder: *NewDecoder(cfg.Model),
 		ready:   make(chan struct{}),
@@ -242,6 +246,18 @@ func (p *printer) RequestUpdate(ctx context.Context) error {
 // Serial returns the printer serial number provided during construction.
 func (p *printer) Serial() string {
 	return p.cfg.SerialNumber
+}
+
+func (p *printer) Fans() *FanSystem {
+	return p.fanSystem
+}
+
+func (p *printer) AMS() *AMSSystem {
+	return p.amsSystem
+}
+
+func (p *printer) Lights() *LightSystem {
+	return p.lightSystem
 }
 
 // Close terminates the connection to the printer and it's underlying clients.

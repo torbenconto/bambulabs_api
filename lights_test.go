@@ -102,7 +102,7 @@ func TestLightDecoder_Apply(t *testing.T) {
 		p := newTestPrinter(t, ModelA1, "")
 		NewLightDecoder().Apply(p, &protocol.Report{})
 
-		_, err := p.Lights.Get(ChamberLight)
+		_, err := p.Lights().Get(ChamberLight)
 		require.ErrorIs(t, err, ErrLightUnavailable)
 	})
 
@@ -118,11 +118,11 @@ func TestLightDecoder_Apply(t *testing.T) {
 			},
 		})
 
-		chamber, err := p.Lights.Get(ChamberLight)
+		chamber, err := p.Lights().Get(ChamberLight)
 		require.NoError(t, err)
 		assert.Equal(t, LightModeOn, chamber.Mode)
 
-		work, err := p.Lights.Get(WorkLight)
+		work, err := p.Lights().Get(WorkLight)
 		require.NoError(t, err)
 		assert.Equal(t, LightModeFlashing, work.Mode)
 	})
@@ -138,7 +138,7 @@ func TestLightDecoder_Apply(t *testing.T) {
 			LightsReport: []protocol.LightsReport{{Node: string(ChamberLight), Mode: string(LightModeOn)}},
 		}})
 
-		got, err := p.Lights.Get(ChamberLight)
+		got, err := p.Lights().Get(ChamberLight)
 		require.NoError(t, err)
 		assert.Equal(t, LightModeOn, got.Mode)
 	})

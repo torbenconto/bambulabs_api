@@ -118,6 +118,6 @@ func (l *LightDecoder) Apply(p *printer, report *protocol.Report) {
 	}
 
 	for _, rawLight := range report.Print.LightsReport {
-		p.Lights.apply(Light(rawLight.Node), LightMode(rawLight.Mode))
+		p.Lights().apply(Light(rawLight.Node), LightMode(rawLight.Mode))
 	}
 }

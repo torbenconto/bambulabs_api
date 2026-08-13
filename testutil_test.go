@@ -53,9 +53,9 @@ func newTestPrinter(tb testing.TB, model Model, reportFile string) *printer {
 		cfg: Config{
 			Model: model,
 		},
-		AMS:    NewAMSSystem(),
-		Lights: NewLightSystem(fakeCommandClient{}),
-		Fans:   NewFanSystem(fakeCommandClient{}),
+		amsSystem:   NewAMSSystem(),
+		lightSystem: NewLightSystem(fakeCommandClient{}),
+		fanSystem:   NewFanSystem(fakeCommandClient{}),
 	}
 
 	p.decoder = *NewDecoder(model)

@@ -67,13 +67,13 @@ func TestLightSystem(t *testing.T) {
 
 			for _, lc := range tc.lights {
 				t.Run(string(lc.id), func(t *testing.T) {
-					assertLightTransition(t, p.Lights, emu, lc.id, lc.initialMode, lc.targetMode)
+					assertLightTransition(t, p.Lights(), emu, lc.id, lc.initialMode, lc.targetMode)
 				})
 			}
 
 			for _, id := range tc.unavailable {
 				t.Run(string(id)+"/unavailable", func(t *testing.T) {
-					_, err := p.Lights.Get(id)
+					_, err := p.Lights().Get(id)
 					require.ErrorIs(t, err, bambulabs_api.ErrLightUnavailable)
 				})
 			}

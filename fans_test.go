@@ -154,7 +154,7 @@ func TestFanDecoder_Apply(t *testing.T) {
 		p := newTestPrinter(t, ModelA1, "")
 		NewFanDecoder().Apply(p, &protocol.Report{})
 
-		_, err := p.Fans.Get(PartCoolingFan)
+		_, err := p.Fans().Get(PartCoolingFan)
 		require.ErrorIs(t, err, ErrFanUnavailable)
 	})
 
@@ -168,11 +168,11 @@ func TestFanDecoder_Apply(t *testing.T) {
 			},
 		})
 
-		part, err := p.Fans.Get(PartCoolingFan)
+		part, err := p.Fans().Get(PartCoolingFan)
 		require.NoError(t, err)
 		assert.Equal(t, 40, part.Percent)
 
-		chamber, err := p.Fans.Get(ChamberFan)
+		chamber, err := p.Fans().Get(ChamberFan)
 		require.NoError(t, err)
 		assert.Equal(t, 60, chamber.Percent)
 	})
@@ -187,7 +187,7 @@ func TestFanDecoder_Apply(t *testing.T) {
 			},
 		})
 
-		_, err := p.Fans.Get(AuxillaryFan)
+		_, err := p.Fans().Get(AuxillaryFan)
 		require.ErrorIs(t, err, ErrFanUnavailable)
 		assert.False(t, p.cap.Has(CapabilityAuxFan))
 	})
@@ -202,7 +202,7 @@ func TestFanDecoder_Apply(t *testing.T) {
 			},
 		})
 
-		aux, err := p.Fans.Get(AuxillaryFan)
+		aux, err := p.Fans().Get(AuxillaryFan)
 		require.NoError(t, err)
 		assert.Equal(t, 80, aux.Percent)
 		assert.True(t, p.cap.Has(CapabilityAuxFan))
@@ -215,7 +215,7 @@ func TestFanDecoder_Apply(t *testing.T) {
 		d.Apply(p, &protocol.Report{Print: &protocol.PrintReport{CoolingFanSpeed: "3"}})  // 20%
 		d.Apply(p, &protocol.Report{Print: &protocol.PrintReport{CoolingFanSpeed: "15"}}) // 100%
 
-		got, err := p.Fans.Get(PartCoolingFan)
+		got, err := p.Fans().Get(PartCoolingFan)
 		require.NoError(t, err)
 		assert.Equal(t, 100, got.Percent)
 	})

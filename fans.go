@@ -91,9 +91,9 @@ func (f *FanDecoder) Apply(p *printer, report *protocol.Report) {
 
 	if report.Print.AuxPartFan {
 		p.cap.Add(CapabilityAuxFan)
-		p.Fans.apply(AuxillaryFan, parsePercent(report.Print.BigFan1Speed))
+		p.Fans().apply(AuxillaryFan, parsePercent(report.Print.BigFan1Speed))
 	}
 
-	p.Fans.apply(PartCoolingFan, parsePercent(report.Print.CoolingFanSpeed))
-	p.Fans.apply(ChamberFan, parsePercent(report.Print.BigFan2Speed))
+	p.Fans().apply(PartCoolingFan, parsePercent(report.Print.CoolingFanSpeed))
+	p.Fans().apply(ChamberFan, parsePercent(report.Print.BigFan2Speed))
 }

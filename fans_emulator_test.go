@@ -50,15 +50,15 @@ func TestFanSystem_Emulator_Fixtures(t *testing.T) {
 
 			for _, fc := range tc.cases {
 				t.Run(fc.name, func(t *testing.T) {
-					got, err := p.Fans.Get(fc.fan)
+					got, err := p.Fans().Get(fc.fan)
 					require.NoError(t, err)
 					require.Equal(t, fc.initialPercent, got.Percent,
 						"initial state decoded from fixture did not match expected value")
 
-					require.NoError(t, p.Fans.Set(context.Background(), fc.fan, fc.targetPercent))
+					require.NoError(t, p.Fans().Set(context.Background(), fc.fan, fc.targetPercent))
 
 					require.Eventually(t, func() bool {
-						got, err := p.Fans.Get(fc.fan)
+						got, err := p.Fans().Get(fc.fan)
 						return err == nil && got.Percent == fc.targetPercent
 					}, 2*time.Second, 20*time.Millisecond,
 						"printer did not observe updated fan state from emulator")
@@ -66,7 +66,7 @@ func TestFanSystem_Emulator_Fixtures(t *testing.T) {
 			}
 
 			t.Run("auxiliary/unavailable", func(t *testing.T) {
-				err := p.Fans.Set(context.Background(), bambulabs_api.AuxillaryFan, 50)
+				err := p.Fans().Set(context.Background(), bambulabs_api.AuxillaryFan, 50)
 				require.ErrorIs(t, err, bambulabs_api.ErrFanUnavailable)
 			})
 
@@ -79,14 +79,14 @@ func TestFanSystem_Emulator_Fixtures(t *testing.T) {
 func TestFanSystem_Emulator_AuxFanAvailable(t *testing.T) {
 	p, emu := startEmulatedPrinter(t, bambulabs_api.NewPrinter, bambulabs_api.ModelA1, "mock/all_fans.json")
 
-	got, err := p.Fans.Get(bambulabs_api.AuxillaryFan)
+	got, err := p.Fans().Get(bambulabs_api.AuxillaryFan)
 	require.NoError(t, err)
 	require.Equal(t, 0, got.Percent)
 
-	require.NoError(t, p.Fans.Set(context.Background(), bambulabs_api.AuxillaryFan, 80))
+	require.NoError(t, p.Fans().Set(context.Background(), bambulabs_api.AuxillaryFan, 80))
 
 	require.Eventually(t, func() bool {
-		got, err := p.Fans.Get(bambulabs_api.AuxillaryFan)
+		got, err := p.Fans().Get(bambulabs_api.AuxillaryFan)
 		return err == nil && got.Percent == 80
 	}, 2*time.Second, 20*time.Millisecond, "printer did not observe updated fan state from emulator")
 
