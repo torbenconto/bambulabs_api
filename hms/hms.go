@@ -1,32 +1,16 @@
 package hms
 
-import (
-	"fmt"
-	"strings"
-)
+import "fmt"
 
 type Error struct {
 	Attribute uint32 `json:"attribute"`
 	Code      uint32 `json:"code"`
 }
 
-func NewError(code string) *Error {
-	code, _ = strings.CutPrefix(code, "HMS_")
-
-	var attrHigh, attrLow uint32
-	var codeHigh, codeLow uint32
-
-	_, err := fmt.Sscanf(code, "%04x_%04x_%04x_%04x", &attrHigh, &attrLow, &codeHigh, &codeLow)
-	if err != nil {
-		return nil
-	}
-
-	parsedAttr := (attrHigh << 16) | attrLow
-	parsedCode := (codeHigh << 16) | codeLow
-
+func NewError(code, attribute uint32) *Error {
 	return &Error{
-		Attribute: parsedAttr,
-		Code:      parsedCode,
+		Attribute: attribute,
+		Code:      code,
 	}
 }
 
