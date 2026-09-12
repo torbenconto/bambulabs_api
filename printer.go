@@ -61,6 +61,7 @@ type printer struct {
 	lightSystem *LightSystem
 	fanSystem   *FanSystem
 	// Files     *FileSystem
+	hms *HMSSystem
 
 	cap Capability
 
@@ -258,6 +259,10 @@ func (p *printer) AMS() *AMSSystem {
 
 func (p *printer) Lights() *LightSystem {
 	return p.lightSystem
+}
+
+func (p *printer) HMS() *HMSSystem {
+	return p.hms
 }
 
 // Close terminates the connection to the printer and it's underlying clients.
