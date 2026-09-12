@@ -13,10 +13,17 @@ type HMSSystem struct {
 }
 
 func NewHMSSystem() *HMSSystem {
-	return &HMSSystem{}
+	return &HMSSystem{
+		errors: make([]hms.Error, 0),
+	}
 }
 
-func (h *HMSSystem) apply(errors []hms.Error)
+func (h *HMSSystem) apply(errors []hms.Error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.errors = errors
+}
 
 type HMSDecoder struct{}
 
@@ -31,9 +38,9 @@ func (h *HMSDecoder) Apply(p *printer, report *protocol.Report) {
 
 	var parsedErrors []hms.Error
 	for _, err := range report.Print.HMSErrors {
-		// TODO: actuall parse error
-		_ = err.Attr
-		parsedErrors = append(parsedErrors)
+		parsedError := hms.NewError(uint32(err.Code), uint32(err.Attr))
+
+		parsedErrors = append(parsedErrors, *parsedError)
 	}
 
 	p.HMS().apply(parsedErrors)

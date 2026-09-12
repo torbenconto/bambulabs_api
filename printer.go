@@ -61,7 +61,7 @@ type printer struct {
 	lightSystem *LightSystem
 	fanSystem   *FanSystem
 	// Files     *FileSystem
-	hms *HMSSystem
+	hmsSystem *HMSSystem
 
 	cap Capability
 
@@ -147,6 +147,7 @@ func NewPrinter(parent context.Context, cfg *Config) (*printer, error) {
 		lightSystem: NewLightSystem(commandClient),
 		amsSystem:   NewAMSSystem(),
 		fanSystem:   NewFanSystem(commandClient),
+		hmsSystem:   NewHMSSystem(),
 
 		decoder: *NewDecoder(cfg.Model),
 		ready:   make(chan struct{}),
@@ -262,7 +263,7 @@ func (p *printer) Lights() *LightSystem {
 }
 
 func (p *printer) HMS() *HMSSystem {
-	return p.hms
+	return p.hmsSystem
 }
 
 // Close terminates the connection to the printer and it's underlying clients.
