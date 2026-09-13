@@ -44,6 +44,7 @@ type Printer interface {
 	Lights() *LightSystem
 	AMS() *AMSSystem
 	Fans() *FanSystem
+	HMS() *HMSSystem
 }
 
 type printer struct {
@@ -154,6 +155,7 @@ func NewPrinter(parent context.Context, cfg *Config) (*printer, error) {
 	}
 
 	if err := p.mqtt.WaitConnected(ctx); err != nil {
+		cancel()
 		_ = mc.Close()
 		if ftpClient != nil {
 			_ = ftpClient.Close()
@@ -220,8 +222,6 @@ func (p *printer) publish(ctx context.Context, cmd *protocol.Command) error {
 	return p.mqtt.Publish(ctx, cmd)
 }
 
-// updateState takes a raw MQTT payload and attempts to convert it into a [import/mqtt.Message].
-// Failure is not fatal but may represent something severly wrong with the message struct itself.
 func (p *printer) updateState(payload []byte) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -232,6 +232,9 @@ func (p *printer) updateState(payload []byte) {
 		return
 	}
 
+	if report.Print == nil {
+		return
+	}
 	p.decoder.Apply(p, &report)
 
 	p.readyOnce.Do(func() { close(p.ready) })
