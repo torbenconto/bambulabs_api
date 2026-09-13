@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"net"
 	"os"
 	"regexp"
 	"strconv"
@@ -25,7 +26,9 @@ type Emulator struct {
 
 	broker *mochi.Server
 
-	serial string
+	serial     string
+	port       int
+	autoReport bool
 
 	mu    sync.RWMutex
 	state protocol.Report
@@ -87,23 +90,43 @@ func Start(ctx context.Context, cfg *bambulabs_api.Config, port int, reportFile 
 		return nil, err
 	}
 
-	if err := server.AddListener(listeners.NewTCP(listeners.Config{
+	listener := listeners.NewTCP(listeners.Config{
 		ID:        "emulator",
 		Address:   fmt.Sprintf("127.0.0.1:%d", port),
 		TLSConfig: tlsCfg,
-	})); err != nil {
+	})
+	if err := server.AddListener(listener); err != nil {
 		cancel()
 		return nil, err
 	}
 
-	go server.Serve()
-
 	e := &Emulator{
-		cancel: cancel,
-		done:   make(chan struct{}),
-		broker: server,
-		serial: cfg.SerialNumber,
-		state:  initial,
+		cancel:     cancel,
+		done:       make(chan struct{}),
+		broker:     server,
+		serial:     cfg.SerialNumber,
+		state:      initial,
+		autoReport: true,
+	}
+
+	address, err := net.ResolveTCPAddr("tcp", listener.Address())
+	if err != nil {
+		cancel()
+		_ = server.Close()
+		return nil, err
+	}
+
+	e.port = address.Port
+	if err := server.Subscribe(fmt.Sprintf("device/%s/request", e.serial), 1, e.handleRequest); err != nil {
+		cancel()
+		_ = server.Close()
+		return nil, err
+	}
+
+	if err := server.Serve(); err != nil {
+		cancel()
+		_ = server.Close()
+		return nil, err
 	}
 
 	go e.run(ctx)
@@ -113,12 +136,6 @@ func Start(ctx context.Context, cfg *bambulabs_api.Config, port int, reportFile 
 
 func (e *Emulator) run(ctx context.Context) {
 	defer close(e.done)
-
-	_ = e.broker.Subscribe(
-		fmt.Sprintf("device/%s/request", e.serial),
-		1,
-		e.handleRequest,
-	)
 
 	<-ctx.Done()
 
@@ -131,7 +148,12 @@ func (e *Emulator) handleRequest(
 	pk packets.Packet,
 ) {
 	e.applyCommand(pk.Payload)
-	e.publishReport()
+	e.mu.RLock()
+	autoReport := e.autoReport
+	e.mu.RUnlock()
+	if autoReport {
+		e.publishReport()
+	}
 }
 
 // commandKey identifies a single (message type, command) pair, e.g. the
@@ -262,10 +284,40 @@ func (e *Emulator) PushUpdate() {
 func (e *Emulator) State() protocol.Report {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	return e.state
+	// Round-trip under the lock to detach every nested pointer and slice.
+	payload, err := json.Marshal(e.state)
+	if err != nil {
+		panic(fmt.Errorf("snapshot emulator state: %w", err))
+	}
+	var snapshot protocol.Report
+	if err := json.Unmarshal(payload, &snapshot); err != nil {
+		panic(fmt.Errorf("decode emulator snapshot: %w", err))
+	}
+	return snapshot
 }
 
 func (e *Emulator) Stop() {
 	e.cancel()
 	<-e.done
+}
+
+// Port returns the bound MQTT port, including when Start was passed zero.
+func (e *Emulator) Port() int { return e.port }
+
+// SetAutoReport controls replies to commands. Commands still mutate state;
+// tests can use PushUpdate to deliver the report separately.
+func (e *Emulator) SetAutoReport(enabled bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.autoReport = enabled
+}
+
+// PublishReport injects an unsolicited report, including partial reports,
+// without replacing the emulator's full state.
+func (e *Emulator) PublishReport(report protocol.Report) error {
+	payload, err := json.Marshal(report)
+	if err != nil {
+		return err
+	}
+	return e.broker.Publish(fmt.Sprintf("device/%s/report", e.serial), payload, false, 0)
 }

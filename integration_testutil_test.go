@@ -12,48 +12,23 @@ import (
 	"github.com/torbenconto/bambulabs_api/internal/emulator"
 )
 
-func freePort(t *testing.T) int {
+func startEmulatedPrinter(t *testing.T, model bambulabs_api.Model, reportFile string) (bambulabs_api.Printer, *emulator.Emulator) {
 	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port
-}
-
-func newEmulatedConfig(t *testing.T, model bambulabs_api.Model) *bambulabs_api.Config {
-	t.Helper()
-	return &bambulabs_api.Config{
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	t.Cleanup(cancel)
+	cfg := &bambulabs_api.Config{
 		Host:         net.ParseIP("127.0.0.1"),
-		MQTTPort:     freePort(t),
 		Model:        model,
 		AccessCode:   "test",
 		SerialNumber: "EMULATOR0001",
 	}
-}
-
-func startEmulatedPrinter[P any](
-	t *testing.T,
-	ctor func(context.Context, *bambulabs_api.Config) (P, error),
-	model bambulabs_api.Model,
-	reportFile string,
-) (P, *emulator.Emulator) {
-	t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	t.Cleanup(cancel)
-
-	cfg := newEmulatedConfig(t, model)
-
-	emu, err := emulator.Start(ctx, cfg, cfg.MQTTPort, filepath.Join("fixtures", reportFile))
+	emu, err := emulator.Start(ctx, cfg, 0, filepath.Join("fixtures", reportFile))
 	require.NoError(t, err)
 	t.Cleanup(emu.Stop)
+	cfg.MQTTPort = emu.Port()
 
-	p, err := ctor(ctx, cfg)
+	p, err := bambulabs_api.NewPrinter(ctx, cfg)
 	require.NoError(t, err)
-
-	if closer, ok := any(p).(interface{ Close() error }); ok {
-		t.Cleanup(func() { _ = closer.Close() })
-	}
-
+	t.Cleanup(func() { require.NoError(t, p.Close()) })
 	return p, emu
 }

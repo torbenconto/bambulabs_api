@@ -12,14 +12,14 @@ import (
 
 func TestLightSystem_Get(t *testing.T) {
 	t.Run("returns ErrLightUnavailable for a light the printer never reported", func(t *testing.T) {
-		l := NewLightSystem(fakeCommandClient{})
+		l := NewLightSystem(&capturingCommandClient{})
 
 		_, err := l.Get(ChamberLight)
 		require.ErrorIs(t, err, ErrLightUnavailable)
 	})
 
 	t.Run("returns the last applied state", func(t *testing.T) {
-		l := NewLightSystem(fakeCommandClient{})
+		l := NewLightSystem(&capturingCommandClient{})
 		l.apply(ChamberLight, LightModeOn)
 
 		got, err := l.Get(ChamberLight)
@@ -28,7 +28,7 @@ func TestLightSystem_Get(t *testing.T) {
 	})
 
 	t.Run("apply overwrites the previous state for the same light", func(t *testing.T) {
-		l := NewLightSystem(fakeCommandClient{})
+		l := NewLightSystem(&capturingCommandClient{})
 		l.apply(ChamberLight, LightModeOn)
 		l.apply(ChamberLight, LightModeFlashing)
 
@@ -38,7 +38,7 @@ func TestLightSystem_Get(t *testing.T) {
 	})
 
 	t.Run("tracks multiple lights independently", func(t *testing.T) {
-		l := NewLightSystem(fakeCommandClient{})
+		l := NewLightSystem(&capturingCommandClient{})
 		l.apply(ChamberLight, LightModeOn)
 		l.apply(WorkLight, LightModeOff)
 
@@ -59,7 +59,7 @@ func TestLightSystem_Set(t *testing.T) {
 
 		err := l.Set(context.Background(), ChamberLight, LightModeOn)
 		require.ErrorIs(t, err, ErrLightUnavailable)
-		assert.Empty(t, cc.commands, "Set should not send a command for an unavailable light")
+		assert.Zero(t, cc.count(), "Set should not send a command for an unavailable light")
 	})
 
 	t.Run("sends a correctly-shaped ledctrl command for a known light", func(t *testing.T) {
@@ -84,7 +84,7 @@ func TestLightSystem_Set(t *testing.T) {
 		assert.Equal(t, float64(cfg.IntervalTime.Milliseconds()), system["interval_time"])
 	})
 
-	t.Run("does not itself update local state, only a decoded report does", func(t *testing.T) {
+	t.Run("updates local state immediately", func(t *testing.T) {
 		cc := &capturingCommandClient{}
 		l := NewLightSystem(cc)
 		l.apply(ChamberLight, LightModeOff)
@@ -93,7 +93,7 @@ func TestLightSystem_Set(t *testing.T) {
 
 		got, err := l.Get(ChamberLight)
 		require.NoError(t, err)
-		assert.Equal(t, LightModeOff, got.Mode, "Get should reflect the last decoded state, not a pending command")
+		assert.Equal(t, LightModeOn, got.Mode)
 	})
 }
 

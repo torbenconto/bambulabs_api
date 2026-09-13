@@ -50,22 +50,25 @@ func DefaultLightFlashingConfig() LightFlashingConfig {
 }
 
 type LightSystem struct {
-	mu     sync.RWMutex
-	lights map[Light]LightInfo // current state
+	sendGate  chan struct{}
+	revisions map[Light]uint64
+	mu        sync.RWMutex
+	lights    map[Light]LightInfo
 
 	commandClient CommandClient
 }
 
 func NewLightSystem(commandClient CommandClient) *LightSystem {
 	return &LightSystem{
+		sendGate:      make(chan struct{}, 1),
+		revisions:     make(map[Light]uint64),
 		lights:        make(map[Light]LightInfo),
 		commandClient: commandClient,
 	}
 }
 
-// Get returns the last known state of the given light, as reported by the
-// printer. It returns [ErrLightUnavailable] if the printer hasn't reported
-// this light yet.
+// Get returns the latest reported or optimistically requested state.
+// It returns [ErrLightUnavailable] if the printer hasn't reported this light yet.
 func (l *LightSystem) Get(id Light) (LightInfo, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
@@ -78,12 +81,48 @@ func (l *LightSystem) Get(id Light) (LightInfo, error) {
 	return lt, nil
 }
 
+// Set updates local state immediately, then sends the command. A failed send
+// restores the previous state unless a printer report has superseded it.
+// Later reports remain authoritative.
 func (l *LightSystem) Set(ctx context.Context, id Light, mode LightMode) error {
-	if _, err := l.Get(id); err != nil {
+	ctx, cancel := withDefaultOpTimeout(ctx)
+	defer cancel()
+	select {
+	case l.sendGate <- struct{}{}:
+		defer func() { <-l.sendGate }()
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
+	switch mode {
+	case LightModeOn, LightModeOff, LightModeFlashing:
+	default:
+		return ErrInvalidLightMode
+	}
 
-	return l.commandClient.Send(ctx, newLightCommand(id, mode, DefaultLightFlashingConfig()))
+	l.mu.Lock()
+	previous, ok := l.lights[id]
+	if !ok {
+		l.mu.Unlock()
+		return ErrLightUnavailable
+	}
+
+	l.revisions[id]++
+	revision := l.revisions[id]
+	l.lights[id] = LightInfo{Light: id, Mode: mode}
+	l.mu.Unlock()
+
+	if err := l.commandClient.Send(ctx, newLightCommand(id, mode, DefaultLightFlashingConfig())); err != nil {
+		l.mu.Lock()
+		if l.revisions[id] == revision {
+			l.lights[id] = previous
+		}
+		l.mu.Unlock()
+		return err
+	}
+	return nil
 }
 
 // apply records a light state reported by the printer. Called by
@@ -92,6 +131,7 @@ func (l *LightSystem) apply(id Light, mode LightMode) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	l.revisions[id]++
 	l.lights[id] = LightInfo{Light: id, Mode: mode}
 }
 

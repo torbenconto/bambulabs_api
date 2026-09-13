@@ -10,7 +10,7 @@ import (
 	"github.com/torbenconto/bambulabs_api/internal/emulator"
 )
 
-func TestLightSystem(t *testing.T) {
+func TestLightSystemEmulator(t *testing.T) {
 	type lightCase struct {
 		id          bambulabs_api.Light
 		initialMode bambulabs_api.LightMode
@@ -63,7 +63,8 @@ func TestLightSystem(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			p, emu := startEmulatedPrinter(t, bambulabs_api.NewPrinter, tc.model, tc.reportFile)
+			p, emu := startEmulatedPrinter(t, tc.model, tc.reportFile)
+			emu.SetAutoReport(false)
 
 			for _, lc := range tc.lights {
 				t.Run(string(lc.id), func(t *testing.T) {
@@ -96,20 +97,20 @@ func assertLightTransition(
 
 	require.NoError(t, lights.Set(context.Background(), id, targetMode))
 
+	l, err = lights.Get(id)
+	require.NoError(t, err)
+	require.Equal(t, targetMode, l.Mode, "state is ready without a report")
+
 	require.Eventually(t, func() bool {
-		l, err := lights.Get(id)
-		return err == nil && l.Mode == targetMode
-	}, 2*time.Second, 20*time.Millisecond, "printer did not observe updated light state from emulator")
-
-	state := emu.State()
-	require.NotNil(t, state.Print)
-
-	var found bool
-	for _, reported := range state.Print.LightsReport {
-		if reported.Node == string(id) {
-			require.Equal(t, string(targetMode), reported.Mode)
-			found = true
+		state := emu.State()
+		if state.Print == nil {
+			return false
 		}
-	}
-	require.True(t, found, "%s missing from emulator state", id)
+		for _, reported := range state.Print.LightsReport {
+			if reported.Node == string(id) {
+				return reported.Mode == string(targetMode)
+			}
+		}
+		return false
+	}, 2*time.Second, 20*time.Millisecond, "emulator did not receive light command")
 }
