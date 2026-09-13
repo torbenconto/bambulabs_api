@@ -5,7 +5,7 @@ type Report struct {
 }
 
 type PrintReport struct {
-	HMSErrors  []HMSErrorReport `json:"hms,omitempty"`
+	HMSErrors  []HMSErrorReport `json:"hms,omitzero"`
 	Command    string           `json:"command,omitempty"`
 	GcodeState string           `json:"gcode_state,omitempty"`
 
@@ -64,8 +64,8 @@ type PrintReport struct {
 }
 
 type HMSErrorReport struct {
-	Attr   int    `json:"attr,omitempty"`
-	Code   int    `json:"code,omitempty"`
+	Attr   uint32 `json:"attr,omitempty"`
+	Code   uint32 `json:"code,omitempty"`
 	TSBoot int    `json:"ts_boot,omitempty"`
 	TSUnix string `json:"ts_unix,omitempty"`
 }

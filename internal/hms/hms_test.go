@@ -31,3 +31,28 @@ func TestNewErrorPreservesZeroValues(t *testing.T) {
 		t.Fatalf("GetCode() = %q, want empty string", got)
 	}
 }
+
+func TestErrorMessages(t *testing.T) {
+	tests := []struct {
+		name                  string
+		code, attr            uint32
+		wantCode, wantMessage string
+	}{
+		{"known", 0x00010006, 0x03000100, "HMS_0300_0100_0001_0006", "The heatbed temperature is abnormal; the sensor may have a short circuit."},
+		{"unknown", 0xFFFFFFFF, 0xFFFFFFFF, "HMS_FFFF_FFFF_FFFF_FFFF", "HMS_FFFF_FFFF_FFFF_FFFF"},
+		{"zero code", 0, 1, "", ""},
+		{"zero attribute", 1, 0, "", ""},
+		{"leading zeroes", 1, 1, "HMS_0000_0001_0000_0001", "HMS_0000_0001_0000_0001"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := NewError(tc.code, tc.attr)
+			if got := err.GetCode(); got != tc.wantCode {
+				t.Errorf("GetCode() = %q, want %q", got, tc.wantCode)
+			}
+			if got := err.Error(); got != tc.wantMessage {
+				t.Errorf("Error() = %q, want %q", got, tc.wantMessage)
+			}
+		})
+	}
+}

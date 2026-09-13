@@ -1,3 +1,3 @@
 package hms
 
-//go:generate python3 ../scripts/hms.py
+//go:generate python3 ../../scripts/hms.py

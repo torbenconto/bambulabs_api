@@ -1,6 +1,9 @@
 package hms
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type Error struct {
 	Attribute uint32 `json:"attribute"`
@@ -26,7 +29,9 @@ func (e Error) GetCode() string {
 }
 
 func (e Error) Error() string {
-	if msg, ok := HmsErrors[e.GetCode()]; ok {
+	// The generated wiki table uses hyphens between the numeric groups.
+	key := "HMS_" + strings.ReplaceAll(strings.TrimPrefix(e.GetCode(), "HMS_"), "_", "-")
+	if msg, ok := HmsErrors[key]; ok {
 		return msg
 	}
 

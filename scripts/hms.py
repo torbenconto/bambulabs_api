@@ -19,7 +19,7 @@ from bs4 import BeautifulSoup
 URL = "https://wiki.bambulab.com/en/hms/home"
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT_FILE_PATH = ROOT / "hms" / "errors.go"
+OUT_FILE_PATH = ROOT / "internal" / "hms" / "errors.go"
 
 
 def parse_hms_error_blockquote(bq) -> Dict[str, Any]:
