@@ -12,14 +12,14 @@ import (
 
 func TestFanSystem_Get(t *testing.T) {
 	t.Run("returns ErrFanUnavailable for a fan the printer never reported", func(t *testing.T) {
-		f := NewFanSystem(fakeCommandClient{})
+		f := NewFanSystem(&capturingCommandClient{})
 
 		_, err := f.Get(ChamberFan)
 		require.ErrorIs(t, err, ErrFanUnavailable)
 	})
 
 	t.Run("returns the last applied state", func(t *testing.T) {
-		f := NewFanSystem(fakeCommandClient{})
+		f := NewFanSystem(&capturingCommandClient{})
 		f.apply(ChamberFan, 60)
 
 		got, err := f.Get(ChamberFan)
@@ -28,7 +28,7 @@ func TestFanSystem_Get(t *testing.T) {
 	})
 
 	t.Run("apply overwrites the previous value for the same fan", func(t *testing.T) {
-		f := NewFanSystem(fakeCommandClient{})
+		f := NewFanSystem(&capturingCommandClient{})
 		f.apply(ChamberFan, 60)
 		f.apply(ChamberFan, 100)
 
@@ -38,7 +38,7 @@ func TestFanSystem_Get(t *testing.T) {
 	})
 
 	t.Run("tracks multiple fans independently", func(t *testing.T) {
-		f := NewFanSystem(fakeCommandClient{})
+		f := NewFanSystem(&capturingCommandClient{})
 		f.apply(PartCoolingFan, 20)
 		f.apply(ChamberFan, 80)
 
@@ -59,7 +59,7 @@ func TestFanSystem_Set(t *testing.T) {
 
 		err := f.Set(context.Background(), ChamberFan, 50)
 		require.ErrorIs(t, err, ErrFanUnavailable)
-		assert.Empty(t, cc.commands, "Set should not send a command for an unavailable fan")
+		assert.Zero(t, cc.count(), "Set should not send a command for an unavailable fan")
 	})
 
 	t.Run("sends the correct M106 gcode for a known fan", func(t *testing.T) {
@@ -96,12 +96,13 @@ func TestFanSystem_Set(t *testing.T) {
 			require.NoError(t, f.Set(context.Background(), tc.fan, 100))
 
 			got := cc.last(t)
-			print := got["print"].(map[string]any)
+			print, ok := got["print"].(map[string]any)
+			require.True(t, ok, "expected print command")
 			assert.Contains(t, print["param"], tc.pcode+" S255", "fan %v", tc.fan)
 		}
 	})
 
-	t.Run("does not itself update local state -- only a decoded report does", func(t *testing.T) {
+	t.Run("updates local state immediately", func(t *testing.T) {
 		cc := &capturingCommandClient{}
 		f := NewFanSystem(cc)
 		f.apply(ChamberFan, 0)
@@ -110,7 +111,7 @@ func TestFanSystem_Set(t *testing.T) {
 
 		got, err := f.Get(ChamberFan)
 		require.NoError(t, err)
-		assert.Equal(t, 0, got.Percent, "Get should reflect the last decoded state, not a pending command")
+		assert.Equal(t, 100, got.Percent)
 	})
 }
 
@@ -158,7 +159,7 @@ func TestFanDecoder_Apply(t *testing.T) {
 		require.ErrorIs(t, err, ErrFanUnavailable)
 	})
 
-	t.Run("decodes part cooling and chamber fans unconditionally", func(t *testing.T) {
+	t.Run("decodes reported part cooling and chamber fans", func(t *testing.T) {
 		p := newTestPrinter(t, ModelA1, "")
 
 		NewFanDecoder().Apply(p, &protocol.Report{

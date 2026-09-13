@@ -76,11 +76,11 @@ func TestAMSDecoder(t *testing.T) {
 	t.Run("a1/external tray", func(t *testing.T) {
 		p := newTestPrinter(t, ModelA1, "a1.json")
 
-		require.NotNil(t, p.AMS)
+		require.NotNil(t, p.AMS())
 
 		assert.Equal(t,
 			expectedA1ExternalTray(),
-			p.AMS().vt,
+			p.AMS().ExternalTray(),
 		)
 	})
 
@@ -94,7 +94,7 @@ func TestAMSDecoder(t *testing.T) {
 			*got,
 		)
 
-		got1 := requireAMS(t, p, 1)
+		got1 := requireAMS(t, p, 128)
 		assert.Equal(t,
 			expectedH2DProAMS1(),
 			*got1,
@@ -105,21 +105,20 @@ func TestAMSDecoder(t *testing.T) {
 	t.Run("p1/no AMS", func(t *testing.T) {
 		p := newTestPrinter(t, ModelP1P, "p1p_no_ams.json")
 
-		require.NotNil(t, p.AMS) // AmsSystem should still be present even with no ams in data
+		require.NotNil(t, p.AMS()) // AmsSystem should still be present even with no ams in data
 		require.False(t, p.cap.Has(CapabilityAMS))
-		require.Len(t, p.AMS().ams, 0) // dont use .Units(), move that to unit test
+		require.Empty(t, p.AMS().Units())
 	})
 }
 
 func requireAMS(t *testing.T, p *printer, id int) *AMS {
 	t.Helper()
 
-	require.NotNil(t, p.AMS)
+	require.NotNil(t, p.AMS())
 	require.True(t, p.cap.Has(CapabilityAMS))
-	require.GreaterOrEqual(t, id, 0)
-	require.Less(t, id, len(p.AMS().ams))
-
-	return &p.AMS().ams[id]
+	unit := p.AMS().Get(id)
+	require.NotNil(t, unit, "AMS unit %d missing", id)
+	return unit
 }
 
 func expectedH2DProAMS0() AMS {

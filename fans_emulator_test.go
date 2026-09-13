@@ -2,6 +2,8 @@ package bambulabs_api_test
 
 import (
 	"context"
+	"math"
+	"strconv"
 	"testing"
 	"time"
 
@@ -46,7 +48,8 @@ func TestFanSystem_Emulator_Fixtures(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			p, emu := startEmulatedPrinter(t, bambulabs_api.NewPrinter, tc.model, tc.reportFile)
+			p, emu := startEmulatedPrinter(t, tc.model, tc.reportFile)
+			emu.SetAutoReport(false)
 
 			for _, fc := range tc.cases {
 				t.Run(fc.name, func(t *testing.T) {
@@ -57,11 +60,21 @@ func TestFanSystem_Emulator_Fixtures(t *testing.T) {
 
 					require.NoError(t, p.Fans().Set(context.Background(), fc.fan, fc.targetPercent))
 
+					got, err = p.Fans().Get(fc.fan)
+					require.NoError(t, err)
+					require.Equal(t, fc.targetPercent, got.Percent, "state is ready without a report")
 					require.Eventually(t, func() bool {
-						got, err := p.Fans().Get(fc.fan)
-						return err == nil && got.Percent == fc.targetPercent
-					}, 2*time.Second, 20*time.Millisecond,
-						"printer did not observe updated fan state from emulator")
+						state := emu.State().Print
+						if state == nil {
+							return false
+						}
+						raw := state.CoolingFanSpeed
+						if fc.fan == bambulabs_api.ChamberFan {
+							raw = state.BigFan2Speed
+						}
+						pwm := math.Ceil(255 * float64(fc.targetPercent) / 100)
+						return raw == strconv.Itoa(int(math.Round(pwm/255*15)))
+					}, 2*time.Second, 20*time.Millisecond, "emulator did not receive fan command")
 				})
 			}
 
@@ -77,7 +90,8 @@ func TestFanSystem_Emulator_Fixtures(t *testing.T) {
 }
 
 func TestFanSystem_Emulator_AuxFanAvailable(t *testing.T) {
-	p, emu := startEmulatedPrinter(t, bambulabs_api.NewPrinter, bambulabs_api.ModelA1, "mock/all_fans.json")
+	p, emu := startEmulatedPrinter(t, bambulabs_api.ModelA1, "mock/all_fans.json")
+	emu.SetAutoReport(false)
 
 	got, err := p.Fans().Get(bambulabs_api.AuxillaryFan)
 	require.NoError(t, err)
@@ -85,10 +99,13 @@ func TestFanSystem_Emulator_AuxFanAvailable(t *testing.T) {
 
 	require.NoError(t, p.Fans().Set(context.Background(), bambulabs_api.AuxillaryFan, 80))
 
+	got, err = p.Fans().Get(bambulabs_api.AuxillaryFan)
+	require.NoError(t, err)
+	require.Equal(t, 80, got.Percent)
 	require.Eventually(t, func() bool {
-		got, err := p.Fans().Get(bambulabs_api.AuxillaryFan)
-		return err == nil && got.Percent == 80
-	}, 2*time.Second, 20*time.Millisecond, "printer did not observe updated fan state from emulator")
+		state := emu.State().Print
+		return state != nil && state.BigFan1Speed == "12"
+	}, 2*time.Second, 20*time.Millisecond, "emulator did not receive fan command")
 
 	state := emu.State()
 	require.NotNil(t, state.Print)

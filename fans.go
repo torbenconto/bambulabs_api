@@ -3,6 +3,7 @@ package bambulabs_api
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/torbenconto/bambulabs_api/internal/protocol"
@@ -23,6 +24,8 @@ type FanInfo struct {
 }
 
 type FanSystem struct {
+	sendGate      chan struct{}
+	revisions     map[Fan]uint64
 	mu            sync.RWMutex
 	fans          map[Fan]FanInfo
 	commandClient CommandClient
@@ -30,14 +33,15 @@ type FanSystem struct {
 
 func NewFanSystem(commandClient CommandClient) *FanSystem {
 	return &FanSystem{
+		sendGate:      make(chan struct{}, 1),
+		revisions:     make(map[Fan]uint64),
 		fans:          make(map[Fan]FanInfo),
 		commandClient: commandClient,
 	}
 }
 
-// Get returns the last known state of the given fan, as reported by the
-// printer. It returns ErrFanUnavalible if the printer hasn't reported this
-// fan yet (e.g. an auxiliary fan not physically installed).
+// Get returns the latest reported or optimistically requested state.
+// It returns [ErrFanUnavailable] if the printer hasn't reported this fan yet (e.g. an auxiliary fan not physically installed).
 func (f *FanSystem) Get(id Fan) (FanInfo, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
@@ -50,12 +54,47 @@ func (f *FanSystem) Get(id Fan) (FanInfo, error) {
 	return info, nil
 }
 
+// Set updates local state immediately, then sends the command. A failed send
+// restores the previous state unless a printer report has superseded it.
+// Later reports remain authoritative. Percent must be in [0, 100] and is
+// rounded to the nearest 10, matching the command sent to the printer.
 func (f *FanSystem) Set(ctx context.Context, id Fan, percent int) error {
-	if _, err := f.Get(id); err != nil {
+	ctx, cancel := withDefaultOpTimeout(ctx)
+	defer cancel()
+	select {
+	case f.sendGate <- struct{}{}:
+		defer func() { <-f.sendGate }()
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if percent < 0 || percent > 100 {
+		return ErrInvalidFanPercent
+	}
+	percent = int(math.Round(float64(percent)/10)) * 10
 
-	return f.commandClient.Send(ctx, newFanCommand(id, percent))
+	f.mu.Lock()
+	previous, ok := f.fans[id]
+	if !ok {
+		f.mu.Unlock()
+		return ErrFanUnavailable
+	}
+	f.revisions[id]++
+	revision := f.revisions[id]
+	f.fans[id] = FanInfo{Fan: id, Percent: percent}
+	f.mu.Unlock()
+
+	if err := f.commandClient.Send(ctx, newFanCommand(id, percent)); err != nil {
+		f.mu.Lock()
+		if f.revisions[id] == revision {
+			f.fans[id] = previous
+		}
+		f.mu.Unlock()
+		return err
+	}
+	return nil
 }
 
 // apply records a fan state reported by the printer. Called by [FanDecoder]
@@ -64,6 +103,7 @@ func (f *FanSystem) apply(id Fan, percent int) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
+	f.revisions[id]++
 	f.fans[id] = FanInfo{
 		Fan:     id,
 		Percent: percent,
@@ -91,9 +131,15 @@ func (f *FanDecoder) Apply(p *printer, report *protocol.Report) {
 
 	if report.Print.AuxPartFan {
 		p.cap.Add(CapabilityAuxFan)
+	}
+	// Missing fields in a delta report must not reset existing state.
+	if report.Print.BigFan1Speed != "" && p.cap.Has(CapabilityAuxFan) {
 		p.Fans().apply(AuxillaryFan, parsePercent(report.Print.BigFan1Speed))
 	}
-
-	p.Fans().apply(PartCoolingFan, parsePercent(report.Print.CoolingFanSpeed))
-	p.Fans().apply(ChamberFan, parsePercent(report.Print.BigFan2Speed))
+	if report.Print.CoolingFanSpeed != "" {
+		p.Fans().apply(PartCoolingFan, parsePercent(report.Print.CoolingFanSpeed))
+	}
+	if report.Print.BigFan2Speed != "" {
+		p.Fans().apply(ChamberFan, parsePercent(report.Print.BigFan2Speed))
+	}
 }

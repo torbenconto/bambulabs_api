@@ -38,3 +38,21 @@ func TestWithDefaultOpTimeout(t *testing.T) {
 		}
 	})
 }
+
+func TestUpdateStateReadiness(t *testing.T) {
+	p := newTestPrinter(t, ModelA1, "")
+	for _, payload := range []string{"invalid", "{}", `{"system":{"command":"ledctrl"}}`} {
+		p.updateState([]byte(payload))
+		select {
+		case <-p.ready:
+			t.Fatalf("printer became ready on non-telemetry payload %q", payload)
+		default:
+		}
+	}
+	applyTestReport(t, p, `{"print":{"cooling_fan_speed":"0"}}`)
+	select {
+	case <-p.ready:
+	default:
+		t.Fatal("printer did not become ready after telemetry")
+	}
+}
