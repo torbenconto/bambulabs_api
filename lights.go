@@ -87,6 +87,13 @@ func (l *LightSystem) Get(id Light) (LightInfo, error) {
 func (l *LightSystem) Set(ctx context.Context, id Light, mode LightMode) error {
 	ctx, cancel := withDefaultOpTimeout(ctx)
 	defer cancel()
+
+	switch mode {
+	case LightModeOn, LightModeOff, LightModeFlashing:
+	default:
+		return ErrInvalidLightMode
+	}
+
 	select {
 	case l.sendGate <- struct{}{}:
 		defer func() { <-l.sendGate }()
@@ -95,11 +102,6 @@ func (l *LightSystem) Set(ctx context.Context, id Light, mode LightMode) error {
 	}
 	if err := ctx.Err(); err != nil {
 		return err
-	}
-	switch mode {
-	case LightModeOn, LightModeOff, LightModeFlashing:
-	default:
-		return ErrInvalidLightMode
 	}
 
 	l.mu.Lock()

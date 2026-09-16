@@ -61,6 +61,11 @@ func (f *FanSystem) Get(id Fan) (FanInfo, error) {
 func (f *FanSystem) Set(ctx context.Context, id Fan, percent int) error {
 	ctx, cancel := withDefaultOpTimeout(ctx)
 	defer cancel()
+
+	if percent < 0 || percent > 100 {
+		return ErrInvalidFanPercent
+	}
+
 	select {
 	case f.sendGate <- struct{}{}:
 		defer func() { <-f.sendGate }()
@@ -70,9 +75,7 @@ func (f *FanSystem) Set(ctx context.Context, id Fan, percent int) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if percent < 0 || percent > 100 {
-		return ErrInvalidFanPercent
-	}
+
 	percent = int(math.Round(float64(percent)/10)) * 10
 
 	f.mu.Lock()
