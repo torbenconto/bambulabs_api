@@ -248,6 +248,24 @@ func (p *printer) RequestUpdate(ctx context.Context) error {
 	return p.publish(ctx, protocol.NewCommand(protocol.Pushing).WithCommand("pushall"))
 }
 
+// SendGcode sends raw GCODE commands to the printer via MQTT, be careful of what you send because the commands are currently not validated.
+// EXERCISE CAUTION WHEN USING THIS FUNCTION, IT CAN AND WILL DAMAGE YOUR PRINTER IF USED IMPROPERLY
+func (p *printer) SendGcode(ctx context.Context, input []string) error {
+	ctx, cancel := withDefaultOpTimeout(ctx)
+	defer cancel()
+
+	for _, line := range input {
+		// TODO: validate GCODE
+		cmd := protocol.NewCommand(protocol.Print).WithCommand("gcode_line").WithParam(line)
+
+		if err := p.publish(ctx, cmd); err != nil {
+			return fmt.Errorf("failed to publish gcode line %s: %w", line, err)
+		}
+	}
+
+	return nil
+}
+
 // Serial returns the printer serial number provided during construction.
 func (p *printer) Serial() string {
 	return p.cfg.SerialNumber
