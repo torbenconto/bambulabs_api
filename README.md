@@ -16,7 +16,6 @@ This project does not support the bambulabs cloud api, but it's sister project [
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=torbenconto/bambulabs_api%2Ctorbenconto/bambulabs_cloud_api&type=date&theme=dark&legend=top-left&sealed_token=7oIk67CVptQFze8TgWslDb09AAI4Cetbu5Rgqngz1iPOIqhNthpYa42P5Qggd8YoZQYDUozfpdG2-BXzw_vg3uFpfnUx0L5sd1IE7FtfcaUz_1U8cpF8ffE8ZUmrkyGgBw46Go4vW_OyK9kBLAXcBU2hCSUpmOzEd00ZAANYcR-r5-e6CgrSCi9q79zI" />
    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=torbenconto/bambulabs_api%2Ctorbenconto/bambulabs_cloud_api&type=date&legend=top-left&sealed_token=7oIk67CVptQFze8TgWslDb09AAI4Cetbu5Rgqngz1iPOIqhNthpYa42P5Qggd8YoZQYDUozfpdG2-BXzw_vg3uFpfnUx0L5sd1IE7FtfcaUz_1U8cpF8ffE8ZUmrkyGgBw46Go4vW_OyK9kBLAXcBU2hCSUpmOzEd00ZAANYcR-r5-e6CgrSCi9q79zI" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=torbenconto/bambulabs_api%2Ctorbenconto/bambulabs_cloud_api&type=date&legend=top-left&sealed_token=7oIk67CVptQFze8TgWslDb09AAI4Cetbu5Rgqngz1iPOIqhNthpYa42P5Qggd8YoZQYDUozfpdG2-BXzw_vg3uFpfnUx0L5sd1IE7FtfcaUz_1U8cpF8ffE8ZUmrkyGgBw46Go4vW_OyK9kBLAXcBU2hCSUpmOzEd00ZAANYcR-r5-e6CgrSCi9q79zI" />
  </picture>
 </a>
 

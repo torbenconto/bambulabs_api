@@ -1,9 +1,6 @@
 package hms
 
-import (
-	"fmt"
-	"strings"
-)
+import "fmt"
 
 type Error struct {
 	Attribute uint32 `json:"attribute"`
