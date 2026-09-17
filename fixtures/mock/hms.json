@@ -1,0 +1,9 @@
+{
+  "print": {
+    "hms": [
+      {"attr": 50331904, "code": 65542},
+      {"attr": 4294967295, "code": 4294967295}
+    ],
+    "lights_report": [{"node": "chamber_light", "mode": "off"}]
+  }
+}

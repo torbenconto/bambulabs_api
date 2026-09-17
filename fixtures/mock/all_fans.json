@@ -1,0 +1,8 @@
+{
+  "print": {
+    "aux_part_fan": true,
+    "cooling_fan_speed": "0",
+    "big_fan1_speed": "0",
+    "big_fan2_speed": "0"
+  }
+}

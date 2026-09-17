@@ -10,18 +10,19 @@ Contents
 
 - Overview and architecture
 - Quickstart guide (get started in minutes)
+- [Migrating from v0.2.1 to v0.3.0](migration-v0.3.0.md)
 - API reference (detailed types, methods, and examples)
 - Supported models and capabilities
 
 Project layout
 
-- `bambulabs.go`, `printer.go`, `lights.go`, `fans.go`, `state.go` — core client API
-- `internal/mqtt` — MQTT client and message handling
-- `internal/ftp` — FTP client and file operations
-- `internal/protocol` — command and payload helpers
-- `hms` — hardware model/service helpers and generators
-- `internal/emulator` — local emulator for development & testing
-- `docs/` — this site content
+- `bambulabs.go`, `printer.go`, `lights.go`, `fans.go`, `print.go`, `ams.go`, `hms.go` - core client API
+- `internal/mqtt` - MQTT client and message handling
+- `internal/ftp` - FTP client and file operations
+- `internal/protocol` - command and payload helpers
+- `internal/hms` - hardware model/service helpers and generators
+- `internal/emulator` - local emulator for development & testing
+- `docs/` - this site content
 
 Goals
 

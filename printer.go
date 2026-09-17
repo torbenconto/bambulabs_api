@@ -3,12 +3,11 @@ package bambulabs_api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"os"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/torbenconto/bambulabs_api/internal/ftp"
@@ -41,40 +40,51 @@ type Config struct {
 type Printer interface {
 	Serial() string
 	Close() error
-	State() (*mqtt.Message, bool)
 
-	RequestUpdate(ctx context.Context) error
+	RequestUpdate(context.Context) error
+	SendGcode(context.Context, []string) error
 
-	SetLight(ctx context.Context, light Light, mode LightMode) error
-	SetLightFlashing(ctx context.Context, light Light, cfg LightFlashingConfig) error
-	SetFan(ctx context.Context, fan Fan, speed uint8) error
-	SendGcode(ctx context.Context, input []string) error
-
-	ListFiles(path string) ([]os.FileInfo, error)
-	DownloadFile(path string, w io.Writer) error
-	UploadFile(path string, r io.Reader) error
-	DeleteFile(path string) error
+	Lights() *LightSystem
+	Print() *PrintSystem
+	AMS() *AMSSystem
+	Fans() *FanSystem
+	HMS() *HMSSystem
+	Files() FileClient
 }
 
 type printer struct {
-	cfg Config // own the config
+	cfg Config
 
-	// Cancellation tree for entire printer object
-	cancel context.CancelFunc
+	commandClient CommandClient
+	fileClient    FileClient
 
 	mqtt *mqtt.MqttClient
 	ftp  *ftp.FtpClient
 
-	// Hot-swappable pointer to the current mqtt state
-	// May represent some leakage of information but neccessary in order to simply state access mechanisms
-	state atomic.Pointer[mqtt.Message]
+	amsSystem *AMSSystem
+	// Extruders *ExtruderSystem
+	// Nozzles   *NozzleSystem
+	lightSystem *LightSystem
+	fanSystem   *FanSystem
+	hmsSystem   *HMSSystem
+	printSystem *PrintSystem
 
+	cap Capability
+
+	decoder Decoder
+
+	mu   sync.RWMutex
 	done chan struct{}
+
+	cancel context.CancelFunc
+
+	readyOnce sync.Once
+	ready     chan struct{}
 }
 
 // NewPrinter creates a new [printer] object and attempts both an MQTT and FTP connection using provided options
 // If the MQTT connection fails, the construction fails. If the FTP fails, construction will succeed but remain in a degraded state.
-func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
+func NewPrinter(parent context.Context, cfg *Config) (*printer, error) {
 	ctx, cancel := context.WithCancel(parent)
 
 	// Assign default ports if none provided.
@@ -106,6 +116,8 @@ func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 		return nil, err
 	}
 
+	commandClient := newMqttCommandClient(mc)
+
 	fc := ftp.NewFtpClient(&ftp.FtpClientConfig{
 		Host:       cfg.Host.String(),
 		Port:       ftpPort,
@@ -113,30 +125,61 @@ func NewPrinter(parent context.Context, cfg Config) (*printer, error) {
 		AccessCode: cfg.AccessCode,
 	})
 
-	// FTP is non-vital so we'll warn the user and proceed without FTP connection.
+	var (
+		ftpClient  *ftp.FtpClient
+		fileClient FileClient
+	)
+
+	// FTP is non-vital so we'll warn the user and proceed without file access.
 	if err := fc.Connect(ctx); err != nil {
 		log.Printf("[%s] ftp connect failed, continuing without file access: %v", cfg.SerialNumber, err)
-		fc = nil
+	} else {
+		ftpClient = fc
+		fileClient = newFTPFileClient(fc)
 	}
 
 	p := &printer{
-		cfg: cfg,
+		cfg: *cfg,
 
 		mqtt: mc,
-		ftp:  fc,
+		ftp:  ftpClient,
+
+		commandClient: commandClient,
+		fileClient:    fileClient,
 
 		done:   make(chan struct{}),
 		cancel: cancel,
+
+		lightSystem: NewLightSystem(commandClient),
+		amsSystem:   NewAMSSystem(),
+		fanSystem:   NewFanSystem(commandClient),
+		hmsSystem:   NewHMSSystem(),
+		printSystem: NewPrintSystem(),
+
+		decoder: *NewDecoder(cfg.Model),
+		ready:   make(chan struct{}),
 	}
 
 	if err := p.mqtt.WaitConnected(ctx); err != nil {
+		cancel()
 		_ = mc.Close()
-		_ = fc.Close()
+		if ftpClient != nil {
+			_ = ftpClient.Close()
+		}
 		return nil, err
 	}
-
 	// run state loop (goroutine)
 	p.run(ctx)
+
+	if err := p.awaitInitialState(ctx); err != nil {
+		cancel() // stop run() goroutine
+		<-p.done
+		_ = mc.Close()
+		if ftpClient != nil {
+			_ = ftpClient.Close()
+		}
+		return nil, err
+	}
 
 	return p, nil
 }
@@ -165,21 +208,42 @@ func (p *printer) run(ctx context.Context) {
 	}()
 }
 
+func (p *printer) awaitInitialState(ctx context.Context) error {
+	if err := p.RequestUpdate(ctx); err != nil {
+		return fmt.Errorf("request initial state: %w", err)
+	}
+
+	select {
+	case <-p.ready:
+		return nil
+	case <-p.mqtt.Done():
+		return errors.New("mqtt connection closed before initial state was received")
+	case <-ctx.Done():
+		return fmt.Errorf("timed out waiting for initial printer state: %w", ctx.Err())
+	}
+}
+
 // command publishing helper, possibly include some checks in the future
 func (p *printer) publish(ctx context.Context, cmd *protocol.Command) error {
 	return p.mqtt.Publish(ctx, cmd)
 }
 
-// updateState takes a raw MQTT payload and attempts to convert it into a [import/mqtt.Message].
-// Failure is not fatal but may represent something severly wrong with the message struct itself.
 func (p *printer) updateState(payload []byte) {
-	var msg mqtt.Message
-	if err := json.Unmarshal(payload, &msg); err != nil {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	var report protocol.Report
+	if err := json.Unmarshal(payload, &report); err != nil {
 		log.Printf("[%s] failed to unmarshal MQTT payload: %v", p.cfg.SerialNumber, err)
 		return
 	}
 
-	p.state.Store(&msg)
+	if report.Print == nil {
+		return
+	}
+	p.decoder.Apply(p, &report)
+
+	p.readyOnce.Do(func() { close(p.ready) })
 }
 
 // RequestUpdate manually requests a "pushall", updating the printer state. Exercise caution in the interval you use this, especially on lower end printers.
@@ -190,9 +254,51 @@ func (p *printer) RequestUpdate(ctx context.Context) error {
 	return p.publish(ctx, protocol.NewCommand(protocol.Pushing).WithCommand("pushall"))
 }
 
+// SendGcode sends raw GCODE commands to the printer via MQTT, be careful of what you send because the commands are currently not validated.
+// EXERCISE CAUTION WHEN USING THIS FUNCTION, IT CAN AND WILL DAMAGE YOUR PRINTER IF USED IMPROPERLY
+func (p *printer) SendGcode(ctx context.Context, input []string) error {
+	ctx, cancel := withDefaultOpTimeout(ctx)
+	defer cancel()
+
+	for _, line := range input {
+		// TODO: validate GCODE
+		cmd := protocol.NewCommand(protocol.Print).WithCommand("gcode_line").WithParam(line)
+
+		if err := p.publish(ctx, cmd); err != nil {
+			return fmt.Errorf("failed to publish gcode line %s: %w", line, err)
+		}
+	}
+
+	return nil
+}
+
 // Serial returns the printer serial number provided during construction.
 func (p *printer) Serial() string {
 	return p.cfg.SerialNumber
+}
+
+func (p *printer) Fans() *FanSystem {
+	return p.fanSystem
+}
+
+func (p *printer) AMS() *AMSSystem {
+	return p.amsSystem
+}
+
+func (p *printer) Lights() *LightSystem {
+	return p.lightSystem
+}
+
+func (p *printer) HMS() *HMSSystem {
+	return p.hmsSystem
+}
+
+func (p *printer) Print() *PrintSystem {
+	return p.printSystem
+}
+
+func (p *printer) Files() FileClient {
+	return p.fileClient
 }
 
 // Close terminates the connection to the printer and it's underlying clients.
@@ -212,134 +318,4 @@ func (p *printer) Close() error {
 		return mqttErr
 	}
 	return ftpErr
-}
-
-// State returns the current MQTT state as a [import/mqtt.Message] alongside a boolean indicating a successful retrieve
-func (p *printer) State() (*mqtt.Message, bool) {
-	m := p.state.Load()
-	if m == nil {
-		return nil, false
-	}
-	return m, true
-}
-
-// files (FTP)
-
-// ListFiles calls the underlying FTP client to fetch files found on the printer, returns an [ErrFTPUnavalible] if FTP is unavalible.
-func (p *printer) ListFiles(path string) ([]os.FileInfo, error) {
-	if p.ftp == nil {
-		return nil, ErrFTPUnavailable
-	}
-
-	return p.ftp.List(path)
-}
-
-// DownloadFile calls the underlying FTP client to retrieve a file found on the printer to an [import/io.Writer], returns an [ErrFTPUnavalible] if FTP is unavalible.
-func (p *printer) DownloadFile(path string, w io.Writer) error {
-	if p.ftp == nil {
-		return ErrFTPUnavailable
-	}
-
-	return p.ftp.Retrieve(path, w)
-}
-
-// UploadFile calls the underlying FTP client to upload a file (given as an [import/io.Reader]) to a given path, returns an [ErrFTPUnavalible] if FTP is unavalible.
-func (p *printer) UploadFile(path string, r io.Reader) error {
-	if p.ftp == nil {
-		return ErrFTPUnavailable
-	}
-	return p.ftp.Store(path, r)
-}
-
-// DeleteFile calls the underlying FTP client to delete a file off of the printer (by path), returns an [ErrFTPUnavalible] if FTP is unavalible.
-func (p *printer) DeleteFile(path string) error {
-	if p.ftp == nil {
-		return ErrFTPUnavailable
-	}
-	return p.ftp.Delete(path)
-}
-
-// end files
-
-// lights
-
-// SetLight publishes an MQTT command to control a given [Light], allowing you to set it to a given [LightMode].
-// For [LightFlashing], [DefaultLightFlashingConfig] is used. Call [Printer.SetLightFlashing] to customize the flashing timing.
-// If the [Printer] you attempt to call this function on does not support the chosen light, an [ErrLightNotSupported] will be returned.
-func (p *printer) SetLight(ctx context.Context, light Light, mode LightMode) error {
-	return p.setLight(ctx, light, mode, DefaultLightFlashingConfig())
-}
-
-// SetLightFlashing publishes an MQTT command that flashes a given [Light] using cfg.
-// If the [Printer] does not support the chosen light, an [ErrLightNotSupported] will be returned.
-func (p *printer) SetLightFlashing(ctx context.Context, light Light, cfg LightFlashingConfig) error {
-	return p.setLight(ctx, light, LightFlashing, cfg)
-}
-
-func (p *printer) setLight(ctx context.Context, light Light, mode LightMode, cfg LightFlashingConfig) error {
-	ctx, cancel := withDefaultOpTimeout(ctx)
-	defer cancel()
-
-	if !SupportsLight(p.cfg.Model, light) {
-		return fmt.Errorf("%w: %s", ErrLightNotSupported, light)
-	}
-
-	command := newLightCommand(light, mode, cfg)
-
-	if err := p.publish(ctx, command); err != nil {
-		return fmt.Errorf("error setting light %s: %w", light, err)
-	}
-
-	return nil
-}
-
-func newLightCommand(light Light, mode LightMode, cfg LightFlashingConfig) *protocol.Command {
-	return protocol.NewCommand(protocol.System).
-		WithCommand("ledctrl").
-		Set("led_node", light).
-		Set("led_mode", mode).
-		Set("led_on_time", cfg.OnTime.Milliseconds()).
-		Set("led_off_time", cfg.OffTime.Milliseconds()).
-		Set("loop_times", cfg.LoopTimes).
-		Set("interval_time", cfg.IntervalTime.Milliseconds())
-}
-
-// end lights
-
-// begin fans
-
-// SetFan publishes a GCODE command (M106) via MQTT, allowing you to set a given [Fan] to a speed between 0-255.
-// If the [Printer] you attempt to call this on does not support the chosen fan, an [ErrFanNotSupported] will be returned.
-func (p *printer) SetFan(ctx context.Context, fan Fan, speed uint8) error { // implicit cap of 255
-	ctx, cancel := withDefaultOpTimeout(ctx)
-	defer cancel()
-
-	if !SupportsFan(p.cfg.Model, fan) {
-		return fmt.Errorf("%w: %s", ErrFanNotSupported, fan.String())
-	}
-
-	if err := p.SendGcode(ctx, []string{fmt.Sprintf("M106 P%d S%d", fan, speed)}); err != nil {
-		return fmt.Errorf("error setting fan %s: %w", fan, err)
-	}
-	return nil
-}
-
-// end fans
-
-// SendGcode sends raw GCODE commands to the printer via MQTT, be careful of what you send because the commands are currently not validated.
-// EXERCISE CAUTION WHEN USING THIS FUNCTION, IT CAN AND WILL DAMAGE YOUR PRINTER IF USED IMPROPERLY
-func (p *printer) SendGcode(ctx context.Context, input []string) error {
-	ctx, cancel := withDefaultOpTimeout(ctx)
-	defer cancel()
-
-	for _, line := range input {
-		// TODO: validate GCODE
-		cmd := protocol.NewCommand(protocol.Print).WithCommand("gcode_line").WithParam(line)
-
-		if err := p.publish(ctx, cmd); err != nil {
-			return fmt.Errorf("failed to publish gcode line %s: %w", line, err)
-		}
-	}
-
-	return nil
 }

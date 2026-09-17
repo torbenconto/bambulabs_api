@@ -5,8 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
+	"net"
+	"os"
+	"regexp"
+	"strconv"
 	"sync"
-	"time"
 
 	mochi "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/hooks/auth"
@@ -16,163 +20,304 @@ import (
 	"github.com/torbenconto/bambulabs_api/internal/protocol"
 )
 
-type incomingCommand struct {
-	Command    string `json:"command"`
-	SequenceID string `json:"sequence_id"`
-	Param      string `json:"param,omitempty"`
-}
-
 type Emulator struct {
-	cancel                  context.CancelFunc
-	port                    int
-	host                    string
-	broker                  *mochi.Server
-	done                    chan struct{}
-	targetModel             bambulabs_api.Model
-	serial                  string
-	capability              bambulabs_api.Capability
-	gcodeState              bambulabs_api.GcodeState
-	unsolicitedUpdateTicker *time.Ticker
-	mu                      sync.Mutex
+	cancel context.CancelFunc
+	done   chan struct{}
+
+	broker *mochi.Server
+
+	serial     string
+	port       int
+	autoReport bool
+
+	mu    sync.RWMutex
+	state protocol.Report
 }
 
-func Start(ctx context.Context, cfg *bambulabs_api.Config, port int) (*Emulator, error) {
+var gcodeM106Re = regexp.MustCompile(`^M106 P(\d+) S(\d+)`)
+
+var fanFieldByIndex = map[int]func(*protocol.PrintReport, string){
+	1: func(r *protocol.PrintReport, v string) { r.CoolingFanSpeed = v },
+	2: func(r *protocol.PrintReport, v string) { r.BigFan1Speed = v },
+	3: func(r *protocol.PrintReport, v string) { r.BigFan2Speed = v },
+}
+
+func Start(ctx context.Context, cfg *bambulabs_api.Config, port int, reportFile string) (*Emulator, error) {
 	ctx, cancel := context.WithCancel(ctx)
+
+	raw, err := os.ReadFile(reportFile)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("read report: %w", err)
+	}
+
+	var initial protocol.Report
+	if err := json.Unmarshal(raw, &initial); err != nil {
+		cancel()
+		return nil, fmt.Errorf("parse report: %w", err)
+	}
+
 	server := mochi.New(&mochi.Options{
 		InlineClient: true,
 	})
+
 	if err := server.AddHook(new(auth.Hook), &auth.Options{
 		Ledger: &auth.Ledger{
 			Auth: auth.AuthRules{
-				{Username: "bblp", Password: auth.RString(cfg.AccessCode), Allow: true},
+				{
+					Username: "bblp",
+					Password: auth.RString(cfg.AccessCode),
+					Allow:    true,
+				},
 			},
 			ACL: auth.ACLRules{
-				{Username: "bblp", Filters: auth.Filters{
-					"#": auth.ReadWrite,
-				}},
+				{
+					Username: "bblp",
+					Filters: auth.Filters{
+						"#": auth.ReadWrite,
+					},
+				},
 			},
 		},
 	}); err != nil {
 		cancel()
-		return nil, fmt.Errorf("add auth hook %v", err)
+		return nil, err
 	}
 
 	tlsCfg, err := selfSignedTLS()
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("generate tls cert: %v", err)
+		return nil, err
 	}
 
-	tcp := listeners.NewTCP(listeners.Config{
-		ID:        "torbenconto/bambulabs_api/emulator",
+	listener := listeners.NewTCP(listeners.Config{
+		ID:        "emulator",
 		Address:   fmt.Sprintf("127.0.0.1:%d", port),
 		TLSConfig: tlsCfg,
 	})
-	if err := server.AddListener(tcp); err != nil {
+	if err := server.AddListener(listener); err != nil {
 		cancel()
-		return nil, fmt.Errorf("add tcp listener %v", err)
+		return nil, err
 	}
 
-	go func() {
-		if err := server.Serve(); err != nil {
-			return
-		}
-	}()
-
-	emu := &Emulator{
-		host:        "127.0.0.1",
-		port:        port,
-		broker:      server,
-		cancel:      cancel,
-		done:        make(chan struct{}),
-		targetModel: cfg.Model,
-		capability:  bambulabs_api.CapabilityAnyAms,
-		serial:      cfg.SerialNumber,
-		gcodeState:  bambulabs_api.IDLE,
+	e := &Emulator{
+		cancel:     cancel,
+		done:       make(chan struct{}),
+		broker:     server,
+		serial:     cfg.SerialNumber,
+		state:      initial,
+		autoReport: true,
 	}
 
-	emu.setTickers()
-	go emu.run(ctx)
-	return emu, nil
-}
-
-func (e *Emulator) setTickers() {
-	switch e.targetModel {
-	case bambulabs_api.ModelX1C, bambulabs_api.ModelX1E, bambulabs_api.ModelH2:
-		e.unsolicitedUpdateTicker = time.NewTicker(5 * time.Second)
-	default:
-		e.unsolicitedUpdateTicker = time.NewTicker(1 * time.Minute)
+	address, err := net.ResolveTCPAddr("tcp", listener.Address())
+	if err != nil {
+		cancel()
+		_ = server.Close()
+		return nil, err
 	}
+
+	e.port = address.Port
+	if err := server.Subscribe(fmt.Sprintf("device/%s/request", e.serial), 1, e.handleRequest); err != nil {
+		cancel()
+		_ = server.Close()
+		return nil, err
+	}
+
+	if err := server.Serve(); err != nil {
+		cancel()
+		_ = server.Close()
+		return nil, err
+	}
+
+	go e.run(ctx)
+
+	return e, nil
 }
 
 func (e *Emulator) run(ctx context.Context) {
 	defer close(e.done)
-	e.broker.Subscribe(fmt.Sprintf("device/%s/request", e.serial), 1, e.handleCommand)
-	for {
-		select {
-		case <-ctx.Done():
-			_ = e.broker.Close()
-			return
-		case <-e.unsolicitedUpdateTicker.C:
-			e.publishCurrentState()
-		}
+
+	<-ctx.Done()
+
+	_ = e.broker.Close()
+}
+
+func (e *Emulator) handleRequest(
+	_ *mochi.Client,
+	_ packets.Subscription,
+	pk packets.Packet,
+) {
+	e.applyCommand(pk.Payload)
+	e.mu.RLock()
+	autoReport := e.autoReport
+	e.mu.RUnlock()
+	if autoReport {
+		e.publishReport()
 	}
 }
 
-func (e *Emulator) handleCommand(_ *mochi.Client, _ packets.Subscription, pk packets.Packet) {
+// commandKey identifies a single (message type, command) pair, e.g. the
+// "ledctrl" command sent under the "system" message type.
+type commandKey struct {
+	msgType string
+	command string
+}
+
+// commandHandlers maps a recognized command onto the state mutation it
+// causes. Add an entry here whenever the emulator needs to understand a new
+// command (e.g. AMS filament changes, print state transitions).
+var commandHandlers = map[commandKey]func(*Emulator, map[string]any){
+	{msgType: "system", command: "ledctrl"}:   (*Emulator).applyLedCtrl,
+	{msgType: "print", command: "gcode_line"}: (*Emulator).applyGcodeLine,
+}
+
+// applyCommand parses a raw MQTT request payload and mutates emulator state
+// for any command it recognizes. Requests are grouped by message type
+// (print/system/pushing/...), matching the shape produced by protocol.Command.
+func (e *Emulator) applyCommand(payload []byte) {
 	var envelope map[string]json.RawMessage
-	if err := json.Unmarshal(pk.Payload, &envelope); err != nil {
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		log.Printf("[emulator %s] failed to parse command: %v", e.serial, err)
 		return
 	}
-	for t, inner := range envelope {
-		var cmd incomingCommand
-		if err := json.Unmarshal(inner, &cmd); err != nil {
+
+	for msgType, raw := range envelope {
+		var fields map[string]any
+		if err := json.Unmarshal(raw, &fields); err != nil {
+			log.Printf("[emulator %s] failed to parse %q fields: %v", e.serial, msgType, err)
 			continue
 		}
-		e.dispatch(protocol.MessageType(t), cmd)
+
+		cmd, _ := fields["command"].(string)
+
+		if handler, ok := commandHandlers[commandKey{msgType: msgType, command: cmd}]; ok {
+			handler(e, fields)
+		}
 	}
 }
 
-func (e *Emulator) dispatch(t protocol.MessageType, cmd incomingCommand) {
+func (e *Emulator) applyGcodeLine(fields map[string]any) {
+	param, _ := fields["param"].(string)
+
+	matches := gcodeM106Re.FindStringSubmatch(param)
+	if matches == nil {
+		return // not a fan-speed M106 command
+	}
+
+	fanIndex, err1 := strconv.Atoi(matches[1])
+	pwm, err2 := strconv.Atoi(matches[2])
+	if err1 != nil || err2 != nil {
+		return
+	}
+
+	setField, ok := fanFieldByIndex[fanIndex]
+	if !ok {
+		return
+	}
+
+	// The gcode carries a 0-255 PWM value; convert back to the printer's
+	// native 0-15 raw step value, matching what real firmware reports.
+	raw := int(math.Round(float64(pwm) / 255 * 15))
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	switch t {
-	case protocol.Print:
-		e.handlePrintCommand(cmd)
-	case protocol.Pushing:
-		e.publishCurrentState()
+	if e.state.Print == nil {
+		e.state.Print = &protocol.PrintReport{}
 	}
+	setField(e.state.Print, strconv.Itoa(raw))
 }
 
-func (e *Emulator) handlePrintCommand(cmd incomingCommand) {
-	switch cmd.Command {
+func (e *Emulator) applyLedCtrl(fields map[string]any) {
+	node, _ := fields["led_node"].(string)
+	mode, _ := fields["led_mode"].(string)
+	if node == "" {
+		return
 	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if e.state.Print == nil {
+		e.state.Print = &protocol.PrintReport{}
+	}
+
+	for i := range e.state.Print.LightsReport {
+		if e.state.Print.LightsReport[i].Node == node {
+			e.state.Print.LightsReport[i].Mode = mode
+			return
+		}
+	}
+
+	e.state.Print.LightsReport = append(e.state.Print.LightsReport, protocol.LightsReport{
+		Node: node,
+		Mode: mode,
+	})
 }
 
-func (e *Emulator) publishCurrentState() {
-	msg := NewMessageBuilder().
-		SetCapability(e.capability).
-		SetGcodeState(e.gcodeState).
-		Build()
-
-	serialized, err := json.Marshal(msg)
+func (e *Emulator) publishReport() {
+	e.mu.RLock()
+	payload, err := json.Marshal(e.state)
+	e.mu.RUnlock()
 	if err != nil {
-		log.Fatalf("failed to marshal fabricated message struct: %v", err)
+		log.Printf("[emulator %s] failed to marshal report: %v", e.serial, err)
+		return
 	}
 
-	e.publish(fmt.Sprintf("device/%s/report", e.serial), serialized)
+	_ = e.broker.Publish(
+		fmt.Sprintf("device/%s/report", e.serial),
+		payload,
+		false,
+		0,
+	)
 }
 
+// PushUpdate republishes the emulator's current state without waiting for a
+// request from a client.
 func (e *Emulator) PushUpdate() {
-	e.publishCurrentState()
+	e.publishReport()
 }
 
-func (e *Emulator) publish(topic string, payload []byte) {
-	_ = e.broker.Publish(topic, payload, false, 0)
+// State returns a snapshot of the emulator's current report state. Intended
+// for tests that want to assert on emulator-side truth directly, independent
+// of whether a connected printer's decoder is behaving correctly.
+func (e *Emulator) State() protocol.Report {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	// Round-trip under the lock to detach every nested pointer and slice.
+	payload, err := json.Marshal(e.state)
+	if err != nil {
+		panic(fmt.Errorf("snapshot emulator state: %w", err))
+	}
+	var snapshot protocol.Report
+	if err := json.Unmarshal(payload, &snapshot); err != nil {
+		panic(fmt.Errorf("decode emulator snapshot: %w", err))
+	}
+	return snapshot
 }
 
 func (e *Emulator) Stop() {
 	e.cancel()
 	<-e.done
+}
+
+// Port returns the bound MQTT port, including when Start was passed zero.
+func (e *Emulator) Port() int { return e.port }
+
+// SetAutoReport controls replies to commands. Commands still mutate state;
+// tests can use PushUpdate to deliver the report separately.
+func (e *Emulator) SetAutoReport(enabled bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.autoReport = enabled
+}
+
+// PublishReport injects an unsolicited report, including partial reports,
+// without replacing the emulator's full state.
+func (e *Emulator) PublishReport(report protocol.Report) error {
+	payload, err := json.Marshal(report)
+	if err != nil {
+		return err
+	}
+	return e.broker.Publish(fmt.Sprintf("device/%s/report", e.serial), payload, false, 0)
 }
