@@ -4,182 +4,187 @@ title: "Quickstart"
 
 # Quickstart
 
-This guide will walk you through the basics of using the Bambulabs API, including descriptions of some common use cases and examples. This guide is intended for beginners in the library with a basic understanding of programming and the go language. Those with prior library or 3d printing knowledge can also benefit from it.
+Use Go 1.26 and import `github.com/torbenconto/bambulabs_api`. You need the printer's LAN IP address, serial number, and access code. See the [README](../README.md) for where to find them.
 
-The name `bambulabs_api` is the official name of this golang package, and has no affiliation with Bambulabs. It will be referred to as "the library" or "Bambulabs API" in this guide.
+## Connect and read print status
 
-## Connection
+This complete example connects, reads the latest print information, and closes the client. Replace the configuration values with your printer's details.
 
-The library connects to your printer over your local network (henceforth referred to as "LAN" or "local network"). It uses the MQTT protocol to access your printer's telemetry, allowing you to monitor and control your printer remotely, and the FTP protocol to browse, upload, and download files on the printer's storage (typically its SD card). Both connections are established automatically when a printer is added to the client, you don't need to manage them separately.
-
-In order to connect to your printer, the library requires a couple pieces of information:
-
-- Your printer's IP address (on the local network)
-- Your printer's serial number
-- Your printer's local access code
-
-For more information on how to obtain these values, see the [README](../README.md).
-
-Once you have these values, you can connect to your printer using the `bambulabs_api` library.
-
-The library uses a central `Client` struct to manage connections and state. You can create a client using standard Go idioms. `NewClient` takes a context for lifetime management.
-
+<!-- example: program -->
 ```go
-ctx := context.Background()
+package main
 
-client, err := bambulabs_api.NewClient(ctx)
-```
+import (
+	"context"
+	"fmt"
+	"log"
+	"net"
 
-Once you have obtained a `Client` instance, you can add your printer to the client by calling `Add` and passing in a `Config` struct with your printer's IP address, serial number, model, and local access code.
+	bambu "github.com/torbenconto/bambulabs_api"
+)
 
-```go
-printer, err := client.Add(bambulabs_api.Config{
-    Host:         net.ParseIP("12.34.56.78"),
-    SerialNumber: "ABC123",
-    Model:        bambulabs_api.ModelUnknown,
-    AccessCode:   "ACCESS_CODE",
-})
-```
-
-`Add` establishes an MQTT connection to your printer, which is required for `Add` to succeed. It also attempts an FTP connection for file access; if the FTP connection fails (e.g. an unreachable port or misconfigured firewall), `Add` still succeeds, but any subsequent call to a file method (`ListFiles`, `DownloadFile`, `UploadFile`, `DeleteFile`) will return `bambulabs_api.ErrFTPUnavailable` until the printer is re-added.
-
-
-The library requires the model of your printer to be specified in the `Model` field of the `Config` struct. This is required to determine which features are supported by your printer. Ensure this variable is accurate or your program may throw an error or behave unexpectedly. If you're unsure of your model, or are using the program for basic compatibility testing, use `bambulabs_api.ModelUnknown`, this model ensures a conservative constraint list and maximizes compatibility.
-
-To see the list of supported models and their respective Model field values, see the [supported models documentation](supported_models.md).
-
-`Config` also accepts optional `MQTTPort` and `FTPPort` fields if your printer uses non-default ports; if left unset they default to `8883` (MQTT over TLS) and `990` (FTP over implicit TLS) respectively.
-
-Now that you have a `Printer` instance, you can interact with your printer using the various methods available. Methods that communicate over MQTT accept a `context.Context` to allow cancellation and deadlines. Not every method is available on every printer model, and not every method will be covered in this brief quickstart guide.
-
-We'll use a simple 5 second timeout in this case, but feel free to just use `context.Background()`, the library provides a sane deafult timeout of 10 seconds when none is supplied.
-
-```go
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
-```
-
-
-- Request an update and read the last-known state
-
-```go
-if err := printer.RequestUpdate(ctx); err != nil {
-    log.Printf("request update failed: %v", err)
+func main() {
+	if err := run(context.Background()); err != nil {
+		log.Fatal(err)
+	}
 }
 
-if st, ok := printer.State(); ok {
-    fmt.Printf("last state: %+v\n", st)
-} else {
-    fmt.Println("no state available yet")
+func run(ctx context.Context) error {
+	client := bambu.NewClient(ctx)
+	defer client.Close()
+
+	p, err := client.Add(&bambu.Config{
+		Host:         net.ParseIP("192.168.1.50"),
+		SerialNumber: "PRINTER_SERIAL",
+		AccessCode:   "ACCESS_CODE",
+		Model:        bambu.ModelA1,
+	})
+	if err != nil {
+		return err
+	}
+
+	info := p.Print().Info()
+	fmt.Printf("%s: %s, %d%%, layer %d/%d, remaining %s\n",
+		info.State, info.Name, info.ProgressPercent,
+		info.CurrentLayer, info.TotalLayers, info.Remaining)
+	return nil
 }
 ```
 
-- Control lights (models may not support every light)
+`Add` takes a config pointer and waits for the initial print report. MQTT is required; FTP is optional. Ports default to 8883 and 990. Select the actual model for decoding defaults, or `ModelUnknown` if it is unknown.
 
+The client context controls the entire connection lifetime. Keep the client open while using its printers. `client.Close()` closes all printers it owns.
+
+## Read state
+
+Getters read local state without network requests:
+
+| System | Read |
+| --- | --- |
+| Print | `p.Print().Info()` returns state, job metadata, progress, layers, and remaining time. |
+| Fans | `p.Fans().Get(bambu.PartCoolingFan)` returns `FanInfo` and an error. |
+| Lights | `p.Lights().Get(bambu.ChamberLight)` returns `LightInfo` and an error. |
+| AMS | `p.AMS().Units()`, `p.AMS().Get(unitID)`, `p.AMS().ExternalTray()`. |
+| HMS | `p.HMS().Errors()` returns an independent error slice. |
+
+`Print().Info()` returns one value, with no availability flag. Print reports replace the entire snapshot. See [print status](print.md) for field definitions.
+
+The following examples are functions using the same `bambu` import alias. Add their standard-library imports as needed.
+
+<!-- example: current -->
 ```go
-if err := printer.SetLight(ctx, bambulabs_api.ChamberLight, bambulabs_api.LightOn); err != nil {
-    log.Printf("set light: %v", err)
+func showHealth(p bambu.Printer) {
+	for _, issue := range p.HMS().Errors() {
+		fmt.Println(issue.GetCode(), issue.Error())
+	}
+}
+
+func showFilament(p bambu.Printer) {
+	for _, unit := range p.AMS().Units() {
+		for _, tray := range unit.Trays {
+			fmt.Printf("AMS %d, slot %d: %s (%d%%)\n",
+				unit.ID, tray.Slot,
+				tray.Filament.Material, tray.Filament.RemainingPercent)
+		}
+	}
+	fmt.Println("External spool:", p.AMS().ExternalTray().Filament.Material)
 }
 ```
 
-- Set a fan speed
+AMS IDs are reported identifiers, not slice indexes. Treat AMS getter results as read-only.
 
+## Control fans and lights
+
+Commands accept a context. If it has no deadline, MQTT operations use a ten-second timeout.
+
+<!-- example: current -->
 ```go
-// speed is 0-255
-if err := printer.SetFan(ctx, bambulabs_api.ChamberFan, 255); err != nil {
-    log.Printf("set fan: %v", err)
+func setCooling(ctx context.Context, p bambu.Printer) error {
+	opCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	return p.Fans().Set(opCtx, bambu.PartCoolingFan, 50)
+}
+
+func turnOnLight(ctx context.Context, p bambu.Printer) error {
+	return p.Lights().Set(ctx, bambu.ChamberLight, bambu.LightModeOn)
 }
 ```
 
-- Send raw G-code lines
+Fan speeds are percentages from 0 to 100, rounded to the nearest ten. Light modes are `LightModeOn`, `LightModeOff`, and `LightModeFlashing`.
 
+Fan/light getters and setters return `ErrFanUnavailable` or `ErrLightUnavailable` when the device has not been reported. Use `errors.Is` to check these errors.
+
+Setters update local fan/light state immediately. A failed send rolls back the value unless a report has superseded it. A matching getter value does not confirm printer execution.
+
+## Refresh and G-code
+
+`RequestUpdate` sends a refresh request; it does not wait for the response. `SendGcode` sends the supplied lines without updating local state optimistically.
+
+<!-- example: current -->
 ```go
-if err := printer.SendGcode(ctx, []string{"G28 ; home", "G1 X10 Y10 F600"}); err != nil {
-    log.Printf("send gcode: %v", err)
+func refresh(ctx context.Context, p bambu.Printer) error {
+	return p.RequestUpdate(ctx)
+}
+
+func sendLines(ctx context.Context, p bambu.Printer, lines []string) error {
+	return p.SendGcode(ctx, lines)
 }
 ```
 
-## Files (FTP)
+## Files
 
-In addition to MQTT-based telemetry and control, the library exposes basic file operations over the printer's FTP connection. This is useful for listing, uploading, or downloading files. For example: 3MF/G-code files on the printer's SD card. FTP operations are **not** context-aware because the underlying FTP client does not support cancelling active transfers. File operations are serialized internally to ensure safe access to the printer's FTP connection.
+Check `p.Files()` before using it. It is nil when FTP setup failed. File methods do not accept contexts.
 
-**Note:** FTP connectivity is optional. If it couldn't be established when the printer was added, file methods return `bambulabs_api.ErrFTPUnavailable` rather than failing printer setup entirely. Check for this error if you want to distinguish "not connected" from other failures:
+| Operation | Call |
+| --- | --- |
+| List | `files.List(path)` returns `[]os.FileInfo`. |
+| Download | `files.Download(path, writer)` writes to an `io.Writer`. |
+| Upload | `files.Upload(path, reader)` reads from an `io.Reader`. |
+| Delete | `files.Delete(path)` removes the remote file. |
 
+<!-- example: current -->
 ```go
-if err := printer.DeleteFile("/model.gcode"); errors.Is(err, bambulabs_api.ErrFTPUnavailable) {
-    log.Println("file access unavailable for this printer")
+func listFiles(p bambu.Printer) error {
+	files := p.Files()
+	if files == nil {
+		return bambu.ErrFTPUnavailable
+	}
+	entries, err := files.List("/")
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		fmt.Println(entry.Name(), entry.Size())
+	}
+	return nil
+}
+
+func downloadFile(p bambu.Printer, remotePath, localPath string) error {
+	files := p.Files()
+	if files == nil {
+		return bambu.ErrFTPUnavailable
+	}
+	dst, err := os.Create(localPath)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+	return files.Download(remotePath, dst)
 }
 ```
 
-- List files in a directory
+## Manage printers
 
+`client.Load(serial)` returns an existing printer. `client.Remove(serial)` removes it and closes its connection. `client.Range` visits the managed printers:
+
+<!-- example: current -->
 ```go
-entries, err := printer.ListFiles("/")
-if err != nil {
-    log.Printf("list files: %v", err)
-}
-for _, e := range entries {
-    fmt.Println(e.Name())
+func showPrinters(client *bambu.Client) {
+	client.Range(func(p bambu.Printer) bool {
+		fmt.Println(p.Serial(), p.Print().Info().State)
+		return true
+	})
 }
 ```
 
-- Download a file
-
-```go
-f, err := os.Create("model.gcode")
-if err != nil {
-    log.Fatal(err)
-}
-defer f.Close()
-
-if err := printer.DownloadFile("/model.gcode", f); err != nil {
-    log.Printf("download file: %v", err)
-}
-```
-
-- Upload a file
-
-```go
-f, err := os.Open("model.gcode")
-if err != nil {
-    log.Fatal(err)
-}
-defer f.Close()
-
-if err := printer.UploadFile("/model.gcode", f); err != nil {
-    log.Printf("upload file: %v", err)
-}
-```
-
-- Delete a file
-
-```go
-if err := printer.DeleteFile("/model.gcode"); err != nil {
-    log.Printf("delete file: %v", err)
-}
-```
-
-## Managing multiple printers
-
-- Iterate over all printers managed by the client
-
-```go
-client.Range(func(p bambulabs_api.Printer) bool {
-    fmt.Println("printer:", p.Serial())
-    return true // continue iteration
-})
-```
-
-- Remove a printer or close the client
-
-```go
-// remove and close a single printer
-if err := client.Remove("MY-PRINTER-123"); err != nil {
-    log.Printf("remove: %v", err)
-}
-
-// close all printers and stop the client
-if err := client.Close(); err != nil {
-    log.Printf("client close: %v", err)
-}
-```
+For API changes from v0.2.1, see the [migration guide](migration-v0.3.0.md).

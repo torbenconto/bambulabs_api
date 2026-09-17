@@ -56,6 +56,9 @@ You can find the **IP Address** and **Access Code** in the printer’s network s
 For a quickstart guide, please see [quickstart.md](docs/quickstart.md).
 
 ## Usage
+
+Upgrading from v0.2.x? See the [v0.3.0 migration guide](docs/migration-v0.3.0.md).
+
 For library usage, please see [index.md](docs/index.md).
 Additionally, see [golang api reference](https://pkg.go.dev/github.com/torbenconto/bambulabs_api) for all available functions and types.
 

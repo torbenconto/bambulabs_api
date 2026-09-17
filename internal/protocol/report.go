@@ -9,6 +9,10 @@ type PrintReport struct {
 	Command    string           `json:"command,omitempty"`
 	GcodeState string           `json:"gcode_state,omitempty"`
 
+	TaskID      string `json:"task_id,omitempty"`
+	SubtaskID   string `json:"subtask_id,omitempty"`
+	SubtaskName string `json:"subtask_name,omitempty"`
+
 	// Virtual Tray (external spool)
 	VtTray *TrayReport `json:"vt_tray,omitempty"`
 

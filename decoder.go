@@ -14,6 +14,7 @@ type Decoder struct {
 	lights LightDecoder
 	fans   FanDecoder
 	hms    HMSDecoder
+	print  PrintDecoder
 }
 
 func NewDecoder(model Model) *Decoder {
@@ -22,6 +23,7 @@ func NewDecoder(model Model) *Decoder {
 		lights: *NewLightDecoder(),
 		fans:   *NewFanDecoder(),
 		hms:    *NewHMSDecoder(),
+		print:  *NewPrintDecoder(),
 	}
 }
 
@@ -30,6 +32,7 @@ func (d *Decoder) Apply(p *printer, msg *protocol.Report) {
 	d.lights.Apply(p, msg)
 	d.fans.Apply(p, msg)
 	d.hms.Apply(p, msg)
+	d.print.Apply(p, msg)
 }
 
 func decodeColor(raw string) color.RGBA {

@@ -65,6 +65,7 @@ func newTestPrinter(tb testing.TB, model Model, reportFile string) *printer {
 		lightSystem: NewLightSystem(commands),
 		fanSystem:   NewFanSystem(commands),
 		hmsSystem:   NewHMSSystem(),
+		printSystem: NewPrintSystem(),
 		decoder:     *NewDecoder(model),
 		ready:       make(chan struct{}),
 	}

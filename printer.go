@@ -41,7 +41,11 @@ type Printer interface {
 	Serial() string
 	Close() error
 
+	RequestUpdate(context.Context) error
+	SendGcode(context.Context, []string) error
+
 	Lights() *LightSystem
+	Print() *PrintSystem
 	AMS() *AMSSystem
 	Fans() *FanSystem
 	HMS() *HMSSystem
@@ -63,6 +67,7 @@ type printer struct {
 	lightSystem *LightSystem
 	fanSystem   *FanSystem
 	hmsSystem   *HMSSystem
+	printSystem *PrintSystem
 
 	cap Capability
 
@@ -149,6 +154,7 @@ func NewPrinter(parent context.Context, cfg *Config) (*printer, error) {
 		amsSystem:   NewAMSSystem(),
 		fanSystem:   NewFanSystem(commandClient),
 		hmsSystem:   NewHMSSystem(),
+		printSystem: NewPrintSystem(),
 
 		decoder: *NewDecoder(cfg.Model),
 		ready:   make(chan struct{}),
@@ -285,6 +291,10 @@ func (p *printer) Lights() *LightSystem {
 
 func (p *printer) HMS() *HMSSystem {
 	return p.hmsSystem
+}
+
+func (p *printer) Print() *PrintSystem {
+	return p.printSystem
 }
 
 func (p *printer) Files() FileClient {
