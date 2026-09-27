@@ -22,17 +22,23 @@ const (
 	// Max time we will wait before giving up on a HTTP request
 	REQUEST_TIMEOUT = 2 * time.Second
 	// File being written to with the populated [HMS_GO_TEMPLATE]
-	TARGET_FILE_PATH = "somefile.go"
+	TARGET_FILE_PATH = "./internal/hms/errors.go"
+	// replace empty Intro strings with placeholder
+	INTRO_MISSING_PLACEHOLDER = "\"<MISSING>\""
 )
 
+// HMS_ERR_CODE_FILES are located at [HMS_ERR_CODE_URL],
+// and are the names of JSON files containing HMS error codes with english-text intro text.
+// The suffix codes in the file-names (e.g. _093, _094, _20P, ...) correspond to the prefixes of certain
+// Bambu Lab 3D printers according to: https://wiki.bambulab.com/en/general/find-sn.
 var HMS_ERR_CODE_FILES = []string{
-	"hms_en_093.json",
-	"hms_en_094.json",
-	"hms_en_20P.json",
-	"hms_en_22E.json",
-	"hms_en_239.json",
-	"hms_en_26A.json",
-	"hms_en_31B.json",
+	"hms_en_093.json", // H2S
+	"hms_en_094.json", // H2D
+	"hms_en_20P.json", // X2D
+	"hms_en_22E.json", // 22E
+	"hms_en_239.json", // H2D Pro
+	"hms_en_26A.json", // A2L
+	"hms_en_31B.json", // H2C
 }
 
 // HmsECodeRecords represents a list of HMS error codes and their corresponding explanations.
@@ -75,13 +81,13 @@ func (hmsRecords *HmsECodeRecords) Gather(ctx context.Context, url string) error
 }
 
 // Dump injects the contents of [HmsECodeRecords] into a Go template and writes the generated content to an [io.Writer].
-func Dump(tmplStr string, w io.Writer) error {
+func Dump(tmplStr string, hms map[string]string, w io.Writer) error {
 	tmpl, err := template.New("tmplStr").Parse(HMS_GO_TEMPLATE)
 	if err != nil {
 		return err
 	}
 
-	if err := tmpl.Execute(w, r); err != nil {
+	if err := tmpl.Execute(w, hms); err != nil {
 		return err
 	}
 	return nil
@@ -142,7 +148,6 @@ func main() {
 	}
 
 	// aggregate and sanitise response content:
-	// - ensure info-text is escaped properly
 	var totalRecords HmsECodeRecords
 	for range HMS_ERR_CODE_FILES {
 		totalRecords = append(totalRecords, <-ch...)
@@ -153,6 +158,7 @@ func main() {
 	for _, record := range totalRecords {
 		// drop records with missing info-text
 		if len(record.Intro) == 0 {
+			outputHmsRecords[record.Ecode] = INTRO_MISSING_PLACEHOLDER
 			continue
 		}
 		// parse intro as json string to retain escape chars
@@ -165,8 +171,10 @@ func main() {
 	}
 
 	// Populate template and dump to stdout
-	if err := finalRecords.Dump(HMS_GO_TEMPLATE, w); err != nil {
+	if err := Dump(HMS_GO_TEMPLATE, outputHmsRecords, w); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	w.Flush()
+	os.Exit(0)
 }
