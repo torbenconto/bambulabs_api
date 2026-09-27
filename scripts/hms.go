@@ -31,14 +31,15 @@ const (
 // and are the names of JSON files containing HMS error codes with english-text intro text.
 // The suffix codes in the file-names (e.g. _093, _094, _20P, ...) correspond to the prefixes of certain
 // Bambu Lab 3D printers according to: https://wiki.bambulab.com/en/general/find-sn.
+// NOTE: only using one endpoint for now to ensure HmsErrors map is consistently populated on each 'go generate ./...' call
 var HMS_ERR_CODE_FILES = []string{
 	"hms_en_093.json", // H2S
-	"hms_en_094.json", // H2D
-	"hms_en_20P.json", // X2D
-	"hms_en_22E.json", // 22E
-	"hms_en_239.json", // H2D Pro
-	"hms_en_26A.json", // A2L
-	"hms_en_31B.json", // H2C
+	// "hms_en_094.json", // H2D
+	// "hms_en_20P.json", // X2D
+	// "hms_en_22E.json", // 22E
+	// "hms_en_239.json", // H2D Pro
+	// "hms_en_26A.json", // A2L
+	// "hms_en_31B.json", // H2C
 }
 
 // HmsECodeRecords represents a list of HMS error codes and their corresponding explanations.
@@ -153,7 +154,7 @@ func main() {
 	totalRecordCount := 0
 	outputHmsRecords := make(map[string]string)
 	for range len(HMS_ERR_CODE_FILES) {
-		// drop records with missing info-text
+		// label missing records
 		records := <-ch
 		for _, record := range records {
 			totalRecordCount += 1
