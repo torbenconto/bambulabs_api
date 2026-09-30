@@ -63,6 +63,7 @@ var HmsErrors = map[string][]string{
 }
 `
 
+// Represents a collection of unique strings
 type stringSet map[string]struct{}
 
 // Gather pulls each [HMS_ERR_CODE_FILES] from [HMS_ERR_CODE_URL], and populates [HmsECodeRecords] with all the "ecode"/"intro" pairs contained in each response.
@@ -156,24 +157,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	// aggregate and sanitise records
-	totalRecordCount := 0
+	// relate Ecodes to a set of Intro strings (the same Ecode can mean different things depending on the printer)
 	outputHmsRecords := map[string]stringSet{}
+
+	// aggregate and sanitise records from each endpoint
+	totalRecordCount := 0
 	for range len(HMS_ERR_CODE_FILES) {
-		// label missing records
 		records := <-ch
+
 		for _, record := range records {
 			totalRecordCount += 1
 
-			// initialise the stringSet corresponding to a new Ecode
+			// ignore ECode records that don't have a corresponding Intro string
+			if len(record.Intro) == 0 {
+				continue
+			}
+
+			// create a new set of Intro strings for every new valid ECode
 			if _, ok := outputHmsRecords[record.Ecode]; !ok {
 				outputHmsRecords[record.Ecode] = make(stringSet)
 			}
 
-			if len(record.Intro) == 0 {
-				outputHmsRecords[record.Ecode][INTRO_MISSING_PLACEHOLDER] = struct{}{}
-				continue
-			}
 			// parse intro as json string to retain escape chars
 			intro, err := json.Marshal(record.Intro)
 			if err != nil {
