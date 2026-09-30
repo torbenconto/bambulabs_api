@@ -32,7 +32,8 @@ func (e Error) Error() string {
 	// The generated wiki table uses hyphens between the numeric groups.
 	key := "HMS_" + strings.ReplaceAll(strings.TrimPrefix(e.GetCode(), "HMS_"), "_", "-")
 	if msg, ok := HmsErrors[key]; ok {
-		return msg
+		// NOTE: just picking the first info string in the list, though there may be more than one
+		return msg[0]
 	}
 
 	return e.GetCode()
