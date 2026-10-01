@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strings"
 	"text/template"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 
 const (
 	// Source of HMS error-code data
-	HMS_ERR_CODE_URL = "https://raw.githubusercontent.com/bambulab/BambuStudio/refs/heads/master/resources/hms"
+	HMS_ECODE_URL = "https://raw.githubusercontent.com/bambulab/BambuStudio/refs/heads/master/resources/hms"
 	// Max time we will wait before giving up on a HTTP request
 	REQUEST_TIMEOUT = 2 * time.Second
 	// File being written to with the populated [HMS_GO_TEMPLATE]
@@ -27,12 +28,12 @@ const (
 	INTRO_MISSING_PLACEHOLDER = "\"<MISSING>\""
 )
 
-// HMS_ERR_CODE_FILES are located at [HMS_ERR_CODE_URL],
+// HMS_ECODE_FILES are located at [HMS_ECODE_URL],
 // and are the names of JSON files containing HMS error codes with english-text intro text.
 // The suffix codes in the file-names (e.g. _093, _094, _20P, ...) correspond to the prefixes of certain
 // Bambu Lab 3D printers according to: https://wiki.bambulab.com/en/general/find-sn.
 // NOTE: only using one endpoint for now to ensure HmsErrors map is consistently populated on each 'go generate ./...' call
-var HMS_ERR_CODE_FILES = []string{
+var HMS_ECODE_FILES = []string{
 	"hms_en_093.json",
 	"hms_en_094.json",
 	"hms_en_20P.json",
@@ -42,10 +43,33 @@ var HMS_ERR_CODE_FILES = []string{
 	"hms_en_31B.json",
 }
 
+// HMSEcodeString represents a Health Management System (HMS) Error Code.
+type HMSEcodeString string
+
+const (
+	HMS_ECODE_PREFIX = "HMS"
+	HMS_ECODE_SEP    = "_"
+)
+
+// String implements the Stringer interface for [HMSEcodeString]
+// by splitting the raw Ecode into a string consisting of 4 groups of digits,
+// separated by [HMS_ECODE_SEP], and prefixed by [HMS_ECODE_PREFIX].
+func (h HMSEcodeString) String() string {
+	var segments []string
+	head := 0
+	for idx := range h {
+		if (idx+1)%4 == 0 {
+			segments = append(segments, string(h[head:idx+1]))
+			head = idx + 1
+		}
+	}
+	return fmt.Sprintf("%s%s%s", HMS_ECODE_PREFIX, HMS_ECODE_SEP, strings.Join(segments, HMS_ECODE_SEP))
+}
+
 // HmsECodeRecords represents a list of HMS error codes and their corresponding explanations.
 type HmsECodeRecords []struct {
-	Ecode string `json:"ecode"`
-	Intro string `json:"intro"`
+	Ecode HMSEcodeString `json:"ecode"`
+	Intro string         `json:"intro"`
 }
 
 // Used to populate the go file containing a map of the HmsErrors
@@ -66,7 +90,7 @@ var HmsErrors = map[string][]string{
 // Represents a collection of unique strings
 type stringSet map[string]struct{}
 
-// Gather pulls each [HMS_ERR_CODE_FILES] from [HMS_ERR_CODE_URL], and populates [HmsECodeRecords] with all the "ecode"/"intro" pairs contained in each response.
+// Gather pulls each [HMS_ECODE_FILES] from [HMS_ECODE_URL], and populates [HmsECodeRecords] with all the "ecode"/"intro" pairs contained in each response.
 func (hmsRecords *HmsECodeRecords) Gather(ctx context.Context, url string) error {
 	// formulate the request for the given json file
 	var hmsResp HmsResp
@@ -91,7 +115,7 @@ func (hmsRecords *HmsECodeRecords) Gather(ctx context.Context, url string) error
 }
 
 // Dump injects the contents of [HmsECodeRecords] into a Go template and writes the generated content to an [io.Writer].
-func Dump(tmplStr string, hms map[string]stringSet, w io.Writer) error {
+func Dump(tmplStr string, hms map[HMSEcodeString]stringSet, w io.Writer) error {
 	tmpl, err := template.New("tmplStr").Parse(HMS_GO_TEMPLATE)
 	if err != nil {
 		return err
@@ -103,7 +127,7 @@ func Dump(tmplStr string, hms map[string]stringSet, w io.Writer) error {
 	return nil
 }
 
-// HmsResp represents a collection of HMS (Health Management System) records extracted from [HMS_ERR_CODE_FILES] located at [HMS_ERR_CODE_URL].
+// HmsResp represents a collection of HMS (Health Management System) records extracted from [HMS_ECODE_FILES] located at [HMS_ECODE_URL].
 // Most fields not needed to populate [HmsECodeRecords] have been omitted,
 // however some, such as [HmsResp.Timestamp] and [HmsResp.Version], are retained
 // as these serve as useful sources of metadata that we may want to make use of.
@@ -133,17 +157,17 @@ func main() {
 	w := bufio.NewWriter(f)
 
 	// synchronise HMS data from different sources, ensuring any error prevents further execution
-	ch := make(chan HmsECodeRecords, len(HMS_ERR_CODE_FILES))
+	ch := make(chan HmsECodeRecords, len(HMS_ECODE_FILES))
 	_ctx, cancel := context.WithTimeout(context.Background(), REQUEST_TIMEOUT)
 	defer cancel()
 
 	errGroup, ctx := errgroup.WithContext(_ctx)
 
 	// concurrently query endpoints to populate hms error records; error from any endpoint causes early exit
-	for _, json_file := range HMS_ERR_CODE_FILES {
+	for _, json_file := range HMS_ECODE_FILES {
 		errGroup.Go(func() error {
 			var records HmsECodeRecords
-			url := fmt.Sprintf("%s/%s", HMS_ERR_CODE_URL, json_file)
+			url := fmt.Sprintf("%s/%s", HMS_ECODE_URL, json_file)
 			if err := records.Gather(ctx, url); err != nil {
 				return err
 			}
@@ -158,11 +182,11 @@ func main() {
 	}
 
 	// relate Ecodes to a set of Intro strings (the same Ecode can mean different things depending on the printer)
-	outputHmsRecords := map[string]stringSet{}
+	outputHmsRecords := map[HMSEcodeString]stringSet{}
 
 	// aggregate and sanitise records from each endpoint
 	totalRecordCount := 0
-	for range len(HMS_ERR_CODE_FILES) {
+	for range len(HMS_ECODE_FILES) {
 		records := <-ch
 
 		for _, record := range records {
