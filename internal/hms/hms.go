@@ -2,7 +2,6 @@ package hms
 
 import (
 	"fmt"
-	"strings"
 )
 
 type Error struct {
@@ -23,20 +22,19 @@ func (e Error) GetCode() string {
 		attrLow := e.Attribute & 0xffff
 		codeHigh := (e.Code >> 16) & 0xffff
 		codeLow := e.Code & 0xffff
+		// The generated wiki table uses hyphens between the numeric groups.
 		return fmt.Sprintf("HMS_%04X_%04X_%04X_%04X", attrHigh, attrLow, codeHigh, codeLow)
 	}
 	return ""
 }
 
 func (e Error) Error() string {
-	// The generated wiki table uses hyphens between the numeric groups.
-	key := "HMS_" + strings.ReplaceAll(strings.TrimPrefix(e.GetCode(), "HMS_"), "_", "-")
-	if msg, ok := HmsErrors[key]; ok {
+	eCode := e.GetCode()
+	if msg, ok := HmsErrors[eCode]; ok {
 		// NOTE: just picking the first info string in the list, though there may be more than one
 		return msg[0]
 	}
-
-	return e.GetCode()
+	return eCode
 }
 
 type Module uint8
