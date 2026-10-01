@@ -3,8 +3,8 @@
 set -e
 
 SCRIPT_DIR="$(dirname "$(realpath "${0}")")"
-ROOT="$(dirname "${SCRIPT_DIR}")"
-OUT_FILE_PATH="${ROOT}/internal/hms/errors.go"
+ROOT_DIR="${SCRIPT_DIR}/.."
+cd "${ROOT_DIR}"
 
-go run "${SCRIPT_DIR}/hms.go" > "${OUT_FILE_PATH}"
+go run "${SCRIPT_DIR}/hms.go"
 echo "Done!"
