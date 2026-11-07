@@ -83,8 +83,19 @@ func (l *LightSystem) Get(id Light) (LightInfo, error) {
 
 // Set updates local state immediately, then sends the command. A failed send
 // restores the previous state unless a printer report has superseded it.
-// Later reports remain authoritative.
+// Later reports remain authoritative. Flashing uses [DefaultLightFlashingConfig];
+// use [LightSystem.SetFlashing] to customize the timing.
 func (l *LightSystem) Set(ctx context.Context, id Light, mode LightMode) error {
+	return l.set(ctx, id, mode, DefaultLightFlashingConfig())
+}
+
+// SetFlashing flashes a reported light using cfg. Durations are sent in whole
+// milliseconds. State updates and error handling follow [LightSystem.Set].
+func (l *LightSystem) SetFlashing(ctx context.Context, id Light, cfg LightFlashingConfig) error {
+	return l.set(ctx, id, LightModeFlashing, cfg)
+}
+
+func (l *LightSystem) set(ctx context.Context, id Light, mode LightMode, cfg LightFlashingConfig) error {
 	ctx, cancel := withDefaultOpTimeout(ctx)
 	defer cancel()
 
@@ -116,7 +127,7 @@ func (l *LightSystem) Set(ctx context.Context, id Light, mode LightMode) error {
 	l.lights[id] = LightInfo{Light: id, Mode: mode}
 	l.mu.Unlock()
 
-	if err := l.commandClient.Send(ctx, newLightCommand(id, mode, DefaultLightFlashingConfig())); err != nil {
+	if err := l.commandClient.Send(ctx, newLightCommand(id, mode, cfg)); err != nil {
 		l.mu.Lock()
 		if l.revisions[id] == revision {
 			l.lights[id] = previous

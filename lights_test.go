@@ -3,6 +3,7 @@ package bambulabs_api
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -95,6 +96,60 @@ func TestLightSystem_Set(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, LightModeOn, got.Mode)
 	})
+}
+
+func TestLightSystem_SetFlashing(t *testing.T) {
+	cc := &capturingCommandClient{}
+	l := NewLightSystem(cc)
+	l.apply(WorkLight, LightModeOff)
+	cfg := LightFlashingConfig{
+		OnTime:       1250 * time.Millisecond,
+		OffTime:      750 * time.Millisecond,
+		LoopTimes:    4,
+		IntervalTime: 2500 * time.Millisecond,
+	}
+
+	require.NoError(t, l.SetFlashing(t.Context(), WorkLight, cfg))
+	system := cc.last(t)["system"].(map[string]any)
+	assert.Subset(t, system, map[string]any{
+		"command":       "ledctrl",
+		"led_node":      "work_light",
+		"led_mode":      "flashing",
+		"led_on_time":   float64(1250),
+		"led_off_time":  float64(750),
+		"loop_times":    float64(4),
+		"interval_time": float64(2500),
+	})
+	light, err := l.Get(WorkLight)
+	require.NoError(t, err)
+	assert.Equal(t, LightModeFlashing, light.Mode)
+
+	// Custom timing applies only to this call, not subsequent default commands.
+	require.NoError(t, l.Set(t.Context(), WorkLight, LightModeFlashing))
+	system = cc.last(t)["system"].(map[string]any)
+	assert.Subset(t, system, map[string]any{
+		"led_mode":      "flashing",
+		"led_on_time":   float64(500),
+		"led_off_time":  float64(500),
+		"loop_times":    float64(1),
+		"interval_time": float64(1000),
+	})
+}
+
+func TestLightSystem_SetFlashingRejectsUnavailableOrCanceledRequests(t *testing.T) {
+	cc := &capturingCommandClient{}
+	l := NewLightSystem(cc)
+	cfg := DefaultLightFlashingConfig()
+	require.ErrorIs(t, l.SetFlashing(t.Context(), ChamberLight, cfg), ErrLightUnavailable)
+
+	l.apply(ChamberLight, LightModeOff)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	require.ErrorIs(t, l.SetFlashing(ctx, ChamberLight, cfg), context.Canceled)
+	assert.Zero(t, cc.count())
+	light, err := l.Get(ChamberLight)
+	require.NoError(t, err)
+	assert.Equal(t, LightModeOff, light.Mode)
 }
 
 func TestLightDecoder_Apply(t *testing.T) {

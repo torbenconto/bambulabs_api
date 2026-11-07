@@ -2,9 +2,13 @@ package bambulabs_api_test
 
 import (
 	"context"
+	"crypto/tls"
+	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
+	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/stretchr/testify/require"
 	"github.com/torbenconto/bambulabs_api"
 	"github.com/torbenconto/bambulabs_api/internal/emulator"
@@ -80,6 +84,62 @@ func TestLightSystemEmulator(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLightSystemFlashingEmulator(t *testing.T) {
+	p, emu := startEmulatedPrinter(t, bambulabs_api.ModelA1, "a1.json")
+	emu.SetAutoReport(false)
+
+	observer := paho.NewClient(paho.NewClientOptions().
+		AddBroker(fmt.Sprintf("mqtts://127.0.0.1:%d", emu.Port())).
+		SetClientID("light-command-observer").
+		SetUsername("bblp").
+		SetPassword("test").
+		SetTLSConfig(&tls.Config{InsecureSkipVerify: true})) // emulator uses a self-signed certificate
+	t.Cleanup(func() { observer.Disconnect(250) })
+	token := observer.Connect()
+	require.True(t, token.WaitTimeout(2*time.Second), "observer did not connect")
+	require.NoError(t, token.Error())
+
+	commands := make(chan []byte, 1)
+	token = observer.Subscribe("device/EMULATOR0001/request", 0, func(_ paho.Client, message paho.Message) {
+		commands <- append([]byte(nil), message.Payload()...)
+	})
+	require.True(t, token.WaitTimeout(2*time.Second), "observer did not subscribe")
+	require.NoError(t, token.Error())
+
+	require.NoError(t, p.Lights().SetFlashing(t.Context(), bambulabs_api.ChamberLight, bambulabs_api.LightFlashingConfig{
+		OnTime:       1500 * time.Millisecond,
+		OffTime:      250 * time.Millisecond,
+		LoopTimes:    3,
+		IntervalTime: 2 * time.Second,
+	}))
+
+	select {
+	case payload := <-commands:
+		var envelope map[string]map[string]any
+		require.NoError(t, json.Unmarshal(payload, &envelope))
+		require.Subset(t, envelope["system"], map[string]any{
+			"command":       "ledctrl",
+			"led_node":      "chamber_light",
+			"led_mode":      "flashing",
+			"led_on_time":   float64(1500),
+			"led_off_time":  float64(250),
+			"loop_times":    float64(3),
+			"interval_time": float64(2000),
+		})
+	case <-time.After(2 * time.Second):
+		t.Fatal("custom light command was not published")
+	}
+
+	require.Eventually(t, func() bool {
+		for _, light := range emu.State().Print.LightsReport {
+			if light.Node == string(bambulabs_api.ChamberLight) {
+				return light.Mode == string(bambulabs_api.LightModeFlashing)
+			}
+		}
+		return false
+	}, 2*time.Second, 20*time.Millisecond)
 }
 
 func assertLightTransition(
