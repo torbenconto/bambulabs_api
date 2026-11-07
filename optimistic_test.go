@@ -89,6 +89,41 @@ func TestLightSetDuringSend(t *testing.T) {
 	}
 }
 
+func TestLightSetFlashingDuringSend(t *testing.T) {
+	sendFailure := errors.New("send failed")
+	for _, tc := range []struct {
+		name    string
+		sendErr error
+		report  bool
+		want    LightMode
+	}{
+		{"success", nil, false, LightModeFlashing},
+		{"failure restores previous state", sendFailure, false, LightModeOff},
+		{"report overrides successful command", nil, true, LightModeOn},
+		{"failure preserves newer report", sendFailure, true, LightModeOn},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var l *LightSystem
+			client := commandClientFunc(func(context.Context, *protocol.Command) error {
+				light, err := l.Get(ChamberLight)
+				require.NoError(t, err)
+				require.Equal(t, LightModeFlashing, light.Mode)
+				if tc.report {
+					l.apply(ChamberLight, LightModeOn)
+				}
+				return tc.sendErr
+			})
+			l = NewLightSystem(client)
+			l.apply(ChamberLight, LightModeOff)
+			err := l.SetFlashing(t.Context(), ChamberLight, LightFlashingConfig{OnTime: time.Second, LoopTimes: 2})
+			require.ErrorIs(t, err, tc.sendErr)
+			light, err := l.Get(ChamberLight)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, light.Mode)
+		})
+	}
+}
+
 func TestSetRejectsInvalidOrCanceledRequests(t *testing.T) {
 	cc := &capturingCommandClient{}
 	fans := NewFanSystem(cc)
@@ -153,6 +188,13 @@ func TestSetCancellationWhileSendIsPending(t *testing.T) {
 			l := NewLightSystem(client)
 			l.apply(ChamberLight, LightModeOff)
 			return func(ctx context.Context) error { return l.Set(ctx, ChamberLight, LightModeOn) }
+		}},
+		{"flashing light", func(client CommandClient) func(context.Context) error {
+			l := NewLightSystem(client)
+			l.apply(ChamberLight, LightModeOff)
+			return func(ctx context.Context) error {
+				return l.SetFlashing(ctx, ChamberLight, DefaultLightFlashingConfig())
+			}
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
