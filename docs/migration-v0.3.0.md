@@ -177,7 +177,7 @@ Read the mode through `p.Lights().Get(id)`. `ChamberLight2` is new; `ChamberLigh
 
 Availability now follows received telemetry instead of static model tables. Both `Get` and `Set` return the relevant unavailable error for devices not yet reported. `ModelUnknown` no longer blocks all fan/light commands, although the model still affects AMS decoding defaults.
 
-Post-tag `master` added `SetLightFlashing(ctx, light, cfg)`. That method has no replacement accepting custom timing. Use `Lights().Set(ctx, light, bambu.LightModeFlashing)` for default timing: 500 ms on, 500 ms off, one loop, 1 s interval.
+Post-tag `master` added `SetLightFlashing(ctx, light, cfg)`. Replace it with `Lights().SetFlashing(ctx, light, cfg)` to preserve custom timing. Use `Lights().Set(ctx, light, bambu.LightModeFlashing)` for default timing: 500 ms on, 500 ms off, one loop, 1 s interval.
 
 ## Optimistic updates
 

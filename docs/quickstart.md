@@ -108,9 +108,18 @@ func setCooling(ctx context.Context, p bambu.Printer) error {
 func turnOnLight(ctx context.Context, p bambu.Printer) error {
 	return p.Lights().Set(ctx, bambu.ChamberLight, bambu.LightModeOn)
 }
+
+func flashLight(ctx context.Context, p bambu.Printer) error {
+	cfg := bambu.DefaultLightFlashingConfig()
+	cfg.OnTime = 250 * time.Millisecond
+	cfg.OffTime = 750 * time.Millisecond
+	return p.Lights().SetFlashing(ctx, bambu.ChamberLight, cfg)
+}
 ```
 
 Fan speeds are percentages from 0 to 100, rounded to the nearest ten. Light modes are `LightModeOn`, `LightModeOff`, and `LightModeFlashing`.
+
+`Lights().Set` uses the default flashing timing. `Lights().SetFlashing` accepts a `LightFlashingConfig` to set the on/off durations, loop count, and interval for that command. Durations are sent in whole milliseconds.
 
 Fan/light getters and setters return `ErrFanUnavailable` or `ErrLightUnavailable` when the device has not been reported. Use `errors.Is` to check these errors.
 
