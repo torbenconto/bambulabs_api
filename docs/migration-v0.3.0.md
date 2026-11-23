@@ -234,6 +234,14 @@ func printAMS(p bambu.Printer) {
 
 Replace `state.Print.VtTray` with `p.AMS().ExternalTray()`.
 
+For printers with multiple external spool slots, use `p.AMS().ExternalTrays()` and
+identify each tray by `Tray.Slot` (for example, 254 or 255). It decodes H-series
+`vir_slot` reports as well as the older `vt_tray` report. `ExternalTray()` remains
+available and returns the first reported external tray, or a zero-value `Tray`
+when none is reported. A `vir_slot` report takes precedence over `vt_tray` when
+both are present; an empty array clears the slots, while an omitted field retains
+the previous report. External trays are available even without an attached AMS.
+
 `AMS().Get(id)` uses the reported unit ID and returns nil if absent. IDs can be sparse, such as `128`. `AMS.Tray(slot)` currently uses a slice index; iterate over `Trays` and compare `Tray.Slot` when looking up a reported slot ID.
 
 `HumidityLevel` is a level, not necessarily relative humidity percent. `HasFilament()` checks for positive remaining percentage or a nonempty material string. An explicit empty AMS report currently does not clear cached units.

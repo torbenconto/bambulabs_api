@@ -37,9 +37,10 @@ func (a AMSModel) String() string {
 }
 
 type AMSSystem struct {
-	ams []AMS
-	mu  sync.RWMutex
-	vt  Tray // "vitrual tray", external spool outside of ams
+	ams           []AMS
+	mu            sync.RWMutex
+	vt            Tray // "vitrual tray", external spool outside of ams
+	externalTrays []Tray
 }
 
 func NewAMSSystem() *AMSSystem {
@@ -56,6 +57,14 @@ func (a *AMSSystem) ExternalTray() Tray {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.vt
+}
+
+// ExternalTrays returns the reported external spools, including both H-series slots.
+// Slots are identified by Tray.Slot; the slice order is the report order.
+func (a *AMSSystem) ExternalTrays() []Tray {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return append([]Tray(nil), a.externalTrays...)
 }
 
 func (a *AMSSystem) Get(id int) *AMS {
@@ -77,10 +86,14 @@ func (a *AMSSystem) setUnits(units []AMS) {
 	a.ams = units
 }
 
-func (a *AMSSystem) setExternalTray(t Tray) {
+func (a *AMSSystem) setExternalTrays(trays []Tray) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.vt = t
+	a.externalTrays = trays
+	a.vt = Tray{}
+	if len(trays) > 0 {
+		a.vt = trays[0]
+	}
 }
 
 type AMS struct {
@@ -151,8 +164,14 @@ func (a *AMSDecoder) Apply(p *printer, report *protocol.Report) {
 	}
 
 	// The external spool ("virtual tray") is independent of whether any AMS units exist
-	if report.Print.VtTray != nil {
-		p.AMS().setExternalTray(a.decodeTray(report.Print.VtTray))
+	if report.Print.VirSlot != nil {
+		trays := make([]Tray, 0, len(report.Print.VirSlot))
+		for i := range report.Print.VirSlot {
+			trays = append(trays, a.decodeTray(&report.Print.VirSlot[i]))
+		}
+		p.AMS().setExternalTrays(trays)
+	} else if report.Print.VtTray != nil {
+		p.AMS().setExternalTrays([]Tray{a.decodeTray(report.Print.VtTray)})
 	}
 
 	if report.Print.AMS == nil {
