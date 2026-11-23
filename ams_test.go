@@ -1,6 +1,7 @@
 package bambulabs_api
 
 import (
+	"fmt"
 	"image/color"
 	"testing"
 
@@ -111,6 +112,36 @@ func TestAMSDecoder(t *testing.T) {
 	})
 }
 
+func TestAMSDecoderHumidityPercent(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		raw       string
+		want      int
+		available bool
+	}{
+		{"reading", "18", 18, true},
+		{"zero", "0", 0, true},
+		{"maximum", "100", 100, true},
+		{"empty", "", 0, false},
+		{"malformed", "unknown", 0, false},
+		{"negative", "-1", 0, false},
+		{"out of range", "101", 0, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := newTestPrinter(t, ModelH2DPro, "")
+			applyTestReport(t, p, fmt.Sprintf(`{"print":{"ams":{"ams":[{"id":"0","humidity":"3","humidity_raw":%q}]}}}`, tc.raw))
+			unit := requireAMS(t, p, 0)
+			assert.Equal(t, 3, unit.HumidityLevel)
+			if tc.available {
+				require.NotNil(t, unit.HumidityPercent)
+				assert.Equal(t, tc.want, *unit.HumidityPercent)
+			} else {
+				assert.Nil(t, unit.HumidityPercent)
+			}
+		})
+	}
+}
+
 func requireAMS(t *testing.T, p *printer, id int) *AMS {
 	t.Helper()
 
@@ -122,10 +153,12 @@ func requireAMS(t *testing.T, p *printer, id int) *AMS {
 }
 
 func expectedH2DProAMS0() AMS {
+	humidity := 18
 	return AMS{
-		ID:            0,
-		Model:         AMSModelPro,
-		HumidityLevel: 5,
+		ID:              0,
+		Model:           AMSModelPro,
+		HumidityLevel:   5,
+		HumidityPercent: &humidity,
 
 		Trays: []Tray{
 			expectedH2DProAMS0Tray(0),
@@ -137,10 +170,12 @@ func expectedH2DProAMS0() AMS {
 }
 
 func expectedH2DProAMS1() AMS {
+	humidity := 21
 	return AMS{
-		ID:            128,
-		Model:         AMSModelHighTemp,
-		HumidityLevel: 0,
+		ID:              128,
+		Model:           AMSModelHighTemp,
+		HumidityLevel:   0,
+		HumidityPercent: &humidity,
 		Trays: []Tray{
 			expectedH2DProAMS1Tray0(),
 		},
