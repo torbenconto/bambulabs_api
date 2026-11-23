@@ -111,6 +111,40 @@ func TestAMSDecoder(t *testing.T) {
 	})
 }
 
+func TestExternalTrays(t *testing.T) {
+	t.Run("legacy report", func(t *testing.T) {
+		p := newTestPrinter(t, ModelA1, "a1.json")
+		assert.Equal(t, []Tray{expectedA1ExternalTray()}, p.AMS().ExternalTrays())
+		assert.Equal(t, expectedA1ExternalTray(), p.AMS().ExternalTray())
+	})
+	t.Run("H series fixture", func(t *testing.T) {
+		p := newTestPrinter(t, ModelH2DPro, "h2dpro.json")
+		trays := p.AMS().ExternalTrays()
+		require.Len(t, trays, 2)
+		assert.Equal(t, 254, trays[0].Slot)
+		assert.Equal(t, 255, trays[1].Slot)
+		assert.Equal(t, "TPU", trays[1].Filament.Material)
+		assert.Equal(t, 200, trays[1].TemperatureInfo.MinNozzleTemp)
+		assert.Equal(t, trays[0], p.AMS().ExternalTray())
+	})
+	t.Run("no AMS and partial updates", func(t *testing.T) {
+		p := newTestPrinter(t, ModelH2DPro, "")
+		applyTestReport(t, p, `{"print":{"vir_slot":[{"id":"255","tray_type":"TPU"},{"id":"254","tray_type":"PLA"}],"vt_tray":{"id":"254","tray_type":"ABS"}}}`)
+		trays := p.AMS().ExternalTrays()
+		require.Len(t, trays, 2)
+		assert.Equal(t, 255, trays[0].Slot)
+		assert.Equal(t, "PLA", trays[1].Filament.Material)
+		assert.False(t, p.cap.Has(CapabilityAMS))
+		applyTestReport(t, p, `{"print":{"gcode_state":"IDLE"}}`)
+		assert.Equal(t, trays, p.AMS().ExternalTrays())
+		trays[0].Slot = 0
+		assert.Equal(t, 255, p.AMS().ExternalTrays()[0].Slot)
+		applyTestReport(t, p, `{"print":{"vir_slot":[]}}`)
+		assert.Empty(t, p.AMS().ExternalTrays())
+		assert.Equal(t, Tray{}, p.AMS().ExternalTray())
+	})
+}
+
 func requireAMS(t *testing.T, p *printer, id int) *AMS {
 	t.Helper()
 

@@ -14,7 +14,8 @@ type PrintReport struct {
 	SubtaskName string `json:"subtask_name,omitempty"`
 
 	// Virtual Tray (external spool)
-	VtTray *TrayReport `json:"vt_tray,omitempty"`
+	VtTray  *TrayReport  `json:"vt_tray,omitempty"`
+	VirSlot []TrayReport `json:"vir_slot,omitempty"`
 
 	AMS    *AMSReport    `json:"ams,omitempty"`
 	Device *DeviceReport `json:"device,omitempty"`
