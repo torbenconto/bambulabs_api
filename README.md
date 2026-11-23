@@ -22,6 +22,7 @@ This project does not support the bambulabs cloud api, but it's sister project [
 ## Table of Contents
 
 - [Installation](#installation)
+- [Connecting to a Printer](#connecting-to-a-printer)
 - [Development](#development)
 - [Contributing](#contributing)
 - [Links & Resources](#links--resources)
@@ -50,6 +51,28 @@ You can find the **IP Address** and **Access Code** in the printer’s network s
 - [Find your printer's IP Address](https://intercom.help/octoeverywhere/en/articles/9034934-find-your-bambu-lab-printer-ip-address)
 - [Find your printer's Access Code](https://intercom.help/octoeverywhere/en/articles/9028357-find-your-bambu-lab-printer-access-code)
 - [Find your printer's Serial Number](https://wiki.bambulab.com/en/general/find-sn)
+
+### LAN Developer Mode
+
+This library connects directly to the printer over the local network. On
+firmware that requires authorization for third-party access, enable LAN mode
+and its optional **Developer Mode** on the printer before using this library.
+The local IP address, serial number, and access code are still required.
+
+In its [Developer Mode announcement](https://blog.bambulab.com/updates-and-third-party-integration-with-bambu-connect/),
+Bambu Lab distinguishes standard LAN mode, which uses the Bambu Connect
+authorization process, from Developer Mode, which permits direct access to
+MQTT, live streaming, and FTP. This library does not implement Bambu Connect
+authorization, and cannot enable Developer Mode remotely. Availability and
+menu locations depend on the printer model and firmware; consult the printer's
+current settings and Bambu Lab's documentation.
+
+Enable Developer Mode only on a trusted local network. Bambu Lab states that
+users are responsible for securing this mode and that its communication
+protocols are not officially supported. Keep the access code private and do
+not expose the printer's services to the internet. If access stops working
+after a firmware update, check the LAN and Developer Mode settings before
+troubleshooting the library connection.
 
 ## Quickstart
 For a quickstart guide, please see [quickstart.md](docs/quickstart.md).
