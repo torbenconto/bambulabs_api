@@ -236,7 +236,9 @@ Replace `state.Print.VtTray` with `p.AMS().ExternalTray()`.
 
 `AMS().Get(id)` uses the reported unit ID and returns nil if absent. IDs can be sparse, such as `128`. `AMS.Tray(slot)` currently uses a slice index; iterate over `Trays` and compare `Tray.Slot` when looking up a reported slot ID.
 
-`HumidityLevel` is a level, not necessarily relative humidity percent. `HasFilament()` checks for positive remaining percentage or a nonempty material string. An explicit empty AMS report currently does not clear cached units.
+`HumidityLevel` is the printer's humidity level. `HumidityPercent` is a pointer to the relative humidity percentage from `humidity_raw`, when reported as an integer from 0 to 100. It is nil when the reading is absent or invalid; a non-nil pointer to zero is a reported 0% reading. Do not calculate a percentage from `HumidityLevel`.
+
+`HasFilament()` checks for positive remaining percentage or a nonempty material string. An explicit empty AMS report currently does not clear cached units.
 
 ## HMS
 

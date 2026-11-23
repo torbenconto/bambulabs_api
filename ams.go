@@ -86,6 +86,8 @@ func (a *AMSSystem) setExternalTray(t Tray) {
 type AMS struct {
 	ID            int
 	HumidityLevel int
+	// HumidityPercent is relative humidity (0-100), or nil when unavailable.
+	HumidityPercent *int
 
 	Model AMSModel
 
@@ -173,6 +175,9 @@ func (a *AMSDecoder) Apply(p *printer, report *protocol.Report) {
 			Model:         a.decodeAMSModel(rawUnit.Info),
 			Trays:         make([]Tray, 0, len(rawUnit.Tray)),
 			HumidityLevel: parseInt(rawUnit.Humidity),
+		}
+		if percent, err := strconv.Atoi(rawUnit.HumidityRaw); err == nil && percent >= 0 && percent <= 100 {
+			decodedUnit.HumidityPercent = &percent
 		}
 
 		for _, rawTray := range rawUnit.Tray {
