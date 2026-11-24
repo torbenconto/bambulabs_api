@@ -3,6 +3,7 @@ package ftp
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -94,13 +95,14 @@ func (c *FtpClient) List(path string) ([]os.FileInfo, error) {
 }
 
 func (c *FtpClient) Retrieve(path string, w io.Writer) error {
-	return c.run(func() error {
+	return c.run(func() (err error) {
 		resp, err := c.conn.Retr(path)
 		if err != nil {
 			return err
 		}
-		defer resp.Close()
-
+		// Close reads the final control-channel reply; EOF on the data
+		// connection alone does not confirm a successful transfer.
+		defer func() { err = errors.Join(err, resp.Close()) }()
 		_, err = io.Copy(w, resp)
 		return err
 	})
