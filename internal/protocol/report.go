@@ -7,11 +7,11 @@ type Report struct {
 type PrintReport struct {
 	HMSErrors  []HMSErrorReport `json:"hms,omitzero"`
 	Command    string           `json:"command,omitempty"`
-	GcodeState string           `json:"gcode_state,omitempty"`
+	GcodeState *string          `json:"gcode_state,omitempty"`
 
-	TaskID      string `json:"task_id,omitempty"`
-	SubtaskID   string `json:"subtask_id,omitempty"`
-	SubtaskName string `json:"subtask_name,omitempty"`
+	TaskID      *string `json:"task_id,omitempty"`
+	SubtaskID   *string `json:"subtask_id,omitempty"`
+	SubtaskName *string `json:"subtask_name,omitempty"`
 
 	// Virtual Tray (external spool)
 	VtTray *TrayReport `json:"vt_tray,omitempty"`
@@ -30,18 +30,19 @@ type PrintReport struct {
 	NozzleDiameter     string  `json:"nozzle_diameter,omitempty"`
 	NozzleType         string  `json:"nozzle_type,omitempty"`
 
-	LayerNum        int `json:"layer_num,omitempty"`
-	TotalLayerNum   int `json:"total_layer_num,omitempty"`
-	MCPercent       int `json:"mc_percent,omitempty"`
-	MCRemainingTime int `json:"mc_remaining_time,omitempty"`
+	// Pointers distinguish missing delta fields from explicit zero updates.
+	LayerNum        *int `json:"layer_num,omitempty"`
+	TotalLayerNum   *int `json:"total_layer_num,omitempty"`
+	MCPercent       *int `json:"mc_percent,omitempty"`
+	MCRemainingTime *int `json:"mc_remaining_time,omitempty"`
 
 	Percent    int `json:"percent,omitempty"`
 	RemainTime int `json:"remain_time,omitempty"`
 
-	GcodeFile string `json:"gcode_file,omitempty"`
-	File      string `json:"file,omitempty"`
+	GcodeFile *string `json:"gcode_file,omitempty"`
+	File      string  `json:"file,omitempty"`
 
-	FailReason string `json:"fail_reason,omitempty"`
+	FailReason *string `json:"fail_reason,omitempty"`
 
 	WifiSignal string `json:"wifi_signal,omitempty"`
 

@@ -20,7 +20,7 @@ const (
 	PrintStateFailed  PrintState = "FAILED"
 )
 
-// PrintInfo is a value snapshot of the latest print report.
+// PrintInfo is a value snapshot of the latest reported print fields.
 type PrintInfo struct {
 	State           PrintState
 	TaskID          string
@@ -67,17 +67,45 @@ func (d *PrintDecoder) Apply(p *printer, report *protocol.Report) {
 	if report.Print == nil {
 		return
 	}
-	r := report.Print
-	p.Print().apply(PrintInfo{
-		State:           PrintState(r.GcodeState),
-		TaskID:          r.TaskID,
-		SubtaskID:       r.SubtaskID,
-		Name:            r.SubtaskName,
-		Filename:        r.GcodeFile,
-		ProgressPercent: r.MCPercent,
-		CurrentLayer:    r.LayerNum,
-		TotalLayers:     r.TotalLayerNum,
-		Remaining:       time.Duration(r.MCRemainingTime) * time.Minute,
-		FailureReason:   r.FailReason,
-	})
+	p.Print().applyReport(report.Print)
+}
+
+func (s *PrintSystem) applyReport(r *protocol.PrintReport) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	info := s.info
+	// Task identifiers can arrive in separate deltas too. Only reported
+	// fields replace state; an identifier change does not clear other fields.
+	if r.GcodeState != nil {
+		info.State = PrintState(*r.GcodeState)
+	}
+	if r.TaskID != nil {
+		info.TaskID = *r.TaskID
+	}
+	if r.SubtaskID != nil {
+		info.SubtaskID = *r.SubtaskID
+	}
+	if r.SubtaskName != nil {
+		info.Name = *r.SubtaskName
+	}
+	if r.GcodeFile != nil {
+		info.Filename = *r.GcodeFile
+	}
+	if r.MCPercent != nil {
+		info.ProgressPercent = *r.MCPercent
+	}
+	if r.LayerNum != nil {
+		info.CurrentLayer = *r.LayerNum
+	}
+	if r.TotalLayerNum != nil {
+		info.TotalLayers = *r.TotalLayerNum
+	}
+	if r.MCRemainingTime != nil {
+		info.Remaining = time.Duration(*r.MCRemainingTime) * time.Minute
+	}
+	if r.FailReason != nil {
+		info.FailureReason = *r.FailReason
+	}
+	s.info = info
 }

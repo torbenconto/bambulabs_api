@@ -104,7 +104,7 @@ func printStatus(p bambu.Printer) {
 
 `PrintInfo` also exposes `Filename`, `Name`, `TaskID`, `SubtaskID`, and `FailureReason`. `Remaining` is a `time.Duration`, converted from the reported minute count.
 
-`Info()` returns one snapshot value. Each print report replaces it directly using the fixture types. There are no availability flags, partial-field merging, or job-boundary heuristics.
+`Info()` returns one snapshot value. Partial print reports update only fields present in the message; absent fields retain their last reported values, including across task or subtask ID changes. Explicit zero or empty values clear fields. There are no availability flags or inferred job-boundary resets.
 
 Replace `GcodeState` with `PrintState` and constants such as `RUNNING` with `PrintStateRunning`. See [print status](print.md) for all fields and states.
 
