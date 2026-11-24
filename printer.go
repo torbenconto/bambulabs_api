@@ -127,7 +127,7 @@ func NewPrinter(parent context.Context, cfg *Config) (*printer, error) {
 
 	var (
 		ftpClient  *ftp.FtpClient
-		fileClient FileClient
+		fileClient = newFTPFileClient(nil)
 	)
 
 	// FTP is non-vital so we'll warn the user and proceed without file access.
