@@ -67,7 +67,7 @@ Getters read local state without network requests:
 | AMS | `p.AMS().Units()`, `p.AMS().Get(unitID)`, `p.AMS().ExternalTray()`. |
 | HMS | `p.HMS().Errors()` returns an independent error slice. |
 
-`Print().Info()` returns one value, with no availability flag. Print reports replace the entire snapshot. See [print status](print.md) for field definitions.
+`Print().Info()` returns one value, with no availability flag. Partial print reports update only the fields they contain; explicit zero and empty values clear those fields. See [print status](print.md) for field definitions.
 
 The following examples are functions using the same `bambu` import alias. Add their standard-library imports as needed.
 

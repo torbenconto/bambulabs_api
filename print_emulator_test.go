@@ -31,9 +31,11 @@ func TestPrintSystemEmulator(t *testing.T) {
 			State: bambu.PrintStateFinish, TaskID: "715417865", SubtaskID: "715417867",
 			Name: "sensor_altanlås_v2_v3", ProgressPercent: 100,
 			CurrentLayer: 124, TotalLayers: 124,
+			FailureReason: "0", // this report does not contain fail_reason
 		}},
 		{"a1.json", bambu.PrintInfo{
 			State: bambu.PrintStateIdle, TaskID: "0", SubtaskID: "0",
+			FailureReason: "0", // this report does not contain fail_reason
 		}},
 		{"x2d.json", running},
 	} {
