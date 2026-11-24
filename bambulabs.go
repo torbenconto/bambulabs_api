@@ -73,10 +73,17 @@ type Client struct {
 // managed printers are closed.
 func NewClient(parent context.Context) *Client {
 	ctx, cancel := context.WithCancel(parent)
-	return &Client{
+	client := &Client{
 		ctx:    ctx,
 		cancel: cancel,
 	}
+	go func() {
+		<-ctx.Done()
+		// Context cancellation stops printer workers; their connections still
+		// belong to this client and must be closed explicitly.
+		_ = client.Close()
+	}()
+	return client
 }
 
 // Add connects to a [Printer] described by cfg and adds it to the client's
