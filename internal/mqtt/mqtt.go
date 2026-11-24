@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -43,7 +44,7 @@ func (c *MqttClient) MessageChan() <-chan []byte {
 
 func NewMqttClient(cfg *MqttConfig) (*MqttClient, error) {
 	opts := paho.NewClientOptions().
-		AddBroker(fmt.Sprintf("mqtts://%s:%d", cfg.Host.String(), cfg.Port)). // use mqtts
+		AddBroker("mqtts://" + net.JoinHostPort(cfg.Host.String(), strconv.Itoa(cfg.Port))). // use mqtts
 		SetClientID(clientID).
 		SetUsername(cfg.Username).
 		SetPassword(cfg.AccessCode).

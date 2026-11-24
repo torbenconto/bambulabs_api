@@ -5,7 +5,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"os"
+	"strconv"
 	"sync"
 
 	goftp "github.com/jlaffaye/ftp"
@@ -35,7 +37,7 @@ func NewFtpClient(cfg *FtpClientConfig) *FtpClient {
 }
 
 func (c *FtpClient) Connect(ctx context.Context) error {
-	addr := fmt.Sprintf("%s:%d", c.config.Host, c.config.Port)
+	addr := net.JoinHostPort(c.config.Host, strconv.Itoa(c.config.Port))
 
 	conn, err := goftp.Dial(
 		addr,
