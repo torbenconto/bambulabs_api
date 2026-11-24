@@ -97,6 +97,9 @@ func (c *MqttClient) handleMessage(_ paho.Client, msg paho.Message) {
 }
 
 func (c *MqttClient) Connect(ctx context.Context) error {
+	if err := c.preflight(ctx); err != nil {
+		return err
+	}
 	token := c.client.Connect()
 	return waitToken(ctx, c.stop, token)
 }
@@ -117,6 +120,9 @@ func (c *MqttClient) Connected() <-chan struct{} {
 }
 
 func (c *MqttClient) Publish(ctx context.Context, cmd *protocol.Command) error {
+	if err := c.preflight(ctx); err != nil {
+		return err
+	}
 	json, err := cmd.Marshal()
 	if err != nil {
 		return err
@@ -126,6 +132,20 @@ func (c *MqttClient) Publish(ctx context.Context, cmd *protocol.Command) error {
 
 	token := c.client.Publish(topic, qos, false, json)
 	return waitToken(ctx, c.stop, token)
+}
+
+// Reject completed requests before the transport can start an asynchronous
+// connection or send a command. Waiting on its token cannot undo either action.
+func (c *MqttClient) preflight(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	select {
+	case <-c.stop:
+		return ErrClosed
+	default:
+		return nil
+	}
 }
 
 func (c *MqttClient) Close() error {
